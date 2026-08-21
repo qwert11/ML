@@ -219,16 +219,20 @@ function appendLinkedText(parent, text, currentFormulaId, manualLinks = []) {
   if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
 }
 
-const INLINE_MATH_PATTERN = /(?:[A-Za-zΔδφλμηθξε](?:\^\{[^}]+\}|_\{[^}]+\}|_[A-Za-z0-9]+|[A-Za-z0-9\\{}()\s])*:=\s*[^;\n,.—]+|\|[A-Za-z]\|\s*(?:<|>|=|≤|≥|≈|≠)\s*\d+(?:\.\d+)?|\b(?:[JLIpO]|tanh|logistic|sign|argmax|mode)\([^)]*\)|(?:\d+(?:\.\d+)?|[A-Za-zΔδφλμηθξε])\s*(?:<|>|=|≤|≥|≈|≠)\s*(?:\d+(?:\.\d+)?|[A-Za-zΔδφλμηθξε])(?:\s*(?:<|>|=|≤|≥|≈|≠)\s*(?:\d+(?:\.\d+)?|[A-Za-zΔδφλμηθξε]))?|[+\-−]?\d*\.?\d+(?:e[+\-−]?\d+)?[Δδφλμηθξε]|(?<![\p{L}\p{N}_])[ΣΔδφλμηθξε](?![\p{L}\p{N}_])|[^\p{Script=Cyrillic};:,.—]+(?:[\\=^_{}∂∇ΣΔδφλμηθξε‖≤≥≈≠∈×±∞₀-₉¹²³⁽⁾ᵀ][^\p{Script=Cyrillic};:,.—]*)+)/gu;
+const INLINE_MATH_PATTERN = /(?:[A-Za-zΔδφλμηθξε](?:\^\{[^}]+\}|_\{[^}]+\}|_[A-Za-z0-9]+|[A-Za-z0-9\\{}()\s])*:=\s*[^;\n,.—]+|\|[A-Za-z]\|\s*(?:<|>|=|≤|≥|≈|≠)\s*\d+(?:\.\d+)?|\b(?:[JLIpO]|tanh|logistic|sign|argmax|mode)\([^)]*\)|(?:\d+(?:\.\d+)?|[A-Za-zΔδφλμηθξε])\s*(?:<|>|=|≤|≥|≈|≠)\s*(?:\d+(?:\.\d+)?|[A-Za-zΔδφλμηθξε])(?:\s*(?:<|>|=|≤|≥|≈|≠)\s*(?:\d+(?:\.\d+)?|[A-Za-zΔδφλμηθξε]))?|[+\-−]?\d*\.?\d+(?:e[+\-−]?\d+)?[Δδφλμηθξε]|(?<![\p{L}\p{N}_])[ΣΔδφλμηθξε](?![\p{L}\p{N}_])|[^\p{Script=Cyrillic};:,.—«»]+(?:[\\=^_{}∂∇ΣΔδφλμηθξε‖≤≥≈≠∈×±∞₀-₉¹²³⁻½⁽⁾ᵀ][^\p{Script=Cyrillic};:,.—«»]*)+)/gu;
 
 function normalizeInlineLatex(text) {
   return text
     .trim()
     .replace(/−/g, "-")
+    // % в LaTeX — начало комментария: без экранирования съедает текст до конца
+    .replace(/%/g, "\\%")
+    .replace(/½/g, "\\tfrac{1}{2}")
     .replace(/∗/g, "\\ast")
     .replace(/∂/g, "\\partial ")
     .replace(/∇/g, "\\nabla ")
-    .replace(/Σ/g, "\\sum ")
+    .replace(/Σ(?=[ᵢⱼₙ_])/g, "\\sum ")
+    .replace(/Σ/g, "\\Sigma ")
     .replace(/Δ/g, "\\Delta ")
     .replace(/δ/g, "\\delta ")
     .replace(/φ/g, "\\phi ")
@@ -260,6 +264,7 @@ function normalizeInlineLatex(text) {
     .replace(/₇/g, "_7")
     .replace(/₈/g, "_8")
     .replace(/₉/g, "_9")
+    .replace(/⁻¹/g, "^{-1}")
     .replace(/¹/g, "^1")
     .replace(/²/g, "^2")
     .replace(/³/g, "^3")
@@ -269,7 +274,9 @@ function normalizeInlineLatex(text) {
     .replace(/⁽ˡ⁾/g, "^{(l)}")
     .replace(/ᵢ/g, "_i")
     .replace(/ⱼ/g, "_j")
-    .replace(/ₙ/g, "_n");
+    .replace(/ₙ/g, "_n")
+    // KaTeX запрещает двойной верхний индекс (x^{(i)}^T) — сливаем в один
+    .replace(/\^\{([^{}]*)\}\^T/g, "^{$1T}");
 }
 
 function collectInlineMath(text) {
@@ -281,6 +288,9 @@ function collectInlineMath(text) {
     const trimmed = raw.trim();
     if (!trimmed || (trimmed.length < 2 && !/^[ΣΔδφλμηθξε]$/.test(trimmed))) continue;
     if (/^[-+*/()[\]{}|\s]+$/.test(trimmed)) continue;
+    // snake_case-идентификаторы (X_train_std, inertia_) — это python-код,
+    // а не математика с индексами: оставляем обычным текстом
+    if (/_[a-z]{2,}|[a-z]_$|\b(?:np|pd|km|sklearn)\./.test(trimmed)) continue;
     matches.push({
       start: trimmedStart,
       end: trimmedStart + trimmed.length,
@@ -292,9 +302,16 @@ function collectInlineMath(text) {
   for (const match of matches) {
     const previous = merged[merged.length - 1];
     const gap = previous ? text.slice(previous.end, match.start).trim() : "";
+    const previousUnbalanced = previous &&
+      previous.latex.split("{").length > previous.latex.split("}").length;
     if (previous && gap === ":" && match.latex.startsWith("=")) {
       previous.end = match.end;
       previous.latex = previous.latex + " :=" + match.latex.slice(1);
+    } else if (previousUnbalanced && gap === ",") {
+      // Запятая внутри фигурных скобок (w_{j,k}) — регулярка режет по ней,
+      // склеиваем обратно, пока скобки не закроются
+      previous.end = match.end;
+      previous.latex = previous.latex + "," + match.latex;
     } else if (previous && gap === "" && /^(?:=|\\ne|\\le|\\ge|\\approx|\\in|<|>)/.test(match.latex)) {
       previous.end = match.end;
       previous.latex = previous.latex + " " + match.latex;
@@ -315,9 +332,15 @@ function appendRichText(parent, text, currentFormulaId, manualLinks = []) {
     if (cursor < match.start) {
       appendLinkedText(parent, value.slice(cursor, match.start), currentFormulaId, manualLinks);
     }
+    // Эвристика распознавания математики может ошибаться: рендерим только то,
+    // что KaTeX реально парсит, иначе оставляем обычный текст вместо красной ошибки
     const inline = el("span", "inline-math");
-    tex(inline, match.latex, false);
-    parent.appendChild(inline);
+    try {
+      katex.render(match.latex, inline, { displayMode: false, throwOnError: true });
+      parent.appendChild(inline);
+    } catch (error) {
+      appendLinkedText(parent, value.slice(match.start, match.end), currentFormulaId, manualLinks);
+    }
     cursor = match.end;
   }
 
