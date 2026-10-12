@@ -6,36 +6,83 @@ const sourceUrl = path => `${repository}/blob/${commit}/${path}`;
 
 module.exports = [
   {
-    id: 'chapter-1-tfidf', bookId: 'yildirim-mastering-transformers', chapter: 1,
-    title: 'TF-IDF: превращаем тексты в матрицу признаков',
-    purpose: 'Строим словарь небольшого корпуса и получаем взвешенную матрицу «документ × термин».',
-    sourcePath: 'CH01/CH01_Introduction.ipynb', cells: 'ячейка 1',
+    id: 'chapter-1-lstm-sst2', bookId: 'yildirim-mastering-transformers', chapter: 1, page: '32–33',
+    title: 'Первый пример книги: анализ тональности SST-2 с LSTM',
+    purpose: 'Загружаем размеченные отзывы SST-2, строим словарь, выравниваем последовательности и обучаем LSTM отличать положительную тональность от отрицательной.',
+    sourcePath: 'CH01/CH01_Introduction.ipynb', cells: 'ячейки 40–51',
     sourceUrl: sourceUrl('CH01/CH01_Introduction.ipynb'), repository,
-    requires: ['scikit-learn', 'NumPy', 'pandas'],
-    compatibility: 'В современных версиях scikit-learn метод get_feature_names() заменён на get_feature_names_out().',
-    excerptNote: 'Код перенесён из одной кодовой ячейки без изменения вычислений.',
-    relatedFormulaIds: ['tf-idf'],
-    code: `from sklearn.feature_extraction.text import TfidfVectorizer
-import numpy as np
+    requires: ['TensorFlow / Keras', 'pandas', 'matplotlib', 'SST-2 из GLUE'],
+    compatibility: 'Код книги использует отдельный пакет keras и простое разбиение строк по пробелам. В современном TensorFlow обычно импортируют tensorflow.keras; для реального проекта нужен токенизатор с обработкой неизвестных слов.',
+    excerptNote: 'Сверено по фотографиям русского издания: стр. 32–33. В печатной книге model.fit использует 30 эпох и batch_size=32; в текущем официальном notebook — 15 эпох и batch_size=16. Ниже сохранены параметры печатной книги.',
+    relatedFormulaIds: ['sigmoid', 'tanh-activation', 'mlp-cost'],
+    code: `# Сначала выполнить в терминале или отдельной ячейке Jupyter:
+# wget https://dl.fbaipublicfiles.com/glue/data/SST-2.zip
+# unzip SST-2.zip
+
+import tensorflow as tf
 import pandas as pd
 
-toy_corpus = ["the fat cat sat on the mat",
-              "the big cat slept",
-              "the dog chased a cat"]
-vectorizer = TfidfVectorizer(use_idf=True)
-corpus_tfidf = vectorizer.fit_transform(toy_corpus)
+df = pd.read_csv("SST-2/train.tsv", sep="\\t")
+sentences = df.sentence
+labels = df.label
 
-print(f"The vocabulary size is {len(vectorizer.vocabulary_.keys())}")
-print(f"The document-term matrix shape is {corpus_tfidf.shape}")
+max_sen_len = max([len(s.split()) for s in sentences])
+words = ["PAD"] + list(set([w for s in sentences for w in s.split()]))
+word2idx = {w: i for i, w in enumerate(words)}
+max_words = max(word2idx.values()) + 1
+idx2word = {i: w for i, w in enumerate(words)}
+train = [
+    list(map(lambda x: word2idx[x], s.split()))
+    for s in sentences
+]
 
-df = pd.DataFrame(np.round(corpus_tfidf.toarray(), 2))
-df.columns = vectorizer.get_feature_names()
-print(df)`,
+from keras import preprocessing
+train_pad = preprocessing.sequence.pad_sequences(
+    train,
+    maxlen=max_sen_len,
+)
+print("Train shape:", train_pad.shape)
+
+from keras.layers import LSTM, Embedding, Dense
+from keras.models import Sequential
+
+model = Sequential()
+model.add(Embedding(max_words, 32))
+model.add(LSTM(32))
+model.add(Dense(1, activation="sigmoid"))
+
+model.compile(
+    optimizer="rmsprop",
+    loss="binary_crossentropy",
+    metrics=["acc"],
+)
+history = model.fit(
+    train_pad,
+    labels,
+    epochs=30,
+    batch_size=32,
+    validation_split=0.2,
+)
+
+import matplotlib.pyplot as plt
+
+def plot_graphs(history, metric):
+    plt.plot(history.history[metric])
+    plt.plot(history.history["val_" + metric])
+    plt.xlabel("epochs")
+    plt.ylabel(metric)
+    plt.legend([metric, "val_" + metric])
+    plt.show()
+
+plot_graphs(history, "acc")
+plot_graphs(history, "loss")`,
     walkthrough: [
-      'TfidfVectorizer сначала выделяет уникальные слова и назначает каждому столбец.',
-      'fit_transform одновременно обучает словарь и вычисляет TF-IDF для трёх документов.',
-      'Разреженная матрица переводится в обычный массив только для наглядного вывода.',
-      'Большой вес получает слово, важное для конкретного документа и редкое в остальных.'
+      'SST-2 загружается из набора GLUE; train.tsv содержит текст предложения и бинарную метку тональности.',
+      'Каждое уникальное слово получает целочисленный индекс word2idx, после чего предложения превращаются из строк в списки индексов.',
+      'pad_sequences дополняет короткие предложения значением PAD и обрезает длинные до max_sen_len; для этого набора книга показывает форму (67349, 52).',
+      'Embedding обучает 32-мерный вектор каждого слова, а LSTM(32) сворачивает последовательность в состояние из 32 признаков.',
+      'Dense с сигмоидой выдаёт вероятность положительного класса; binary_crossentropy штрафует неверную вероятность.',
+      'validation_split=0.2 откладывает пятую часть примеров, а plot_graphs сравнивает обучение и валидацию по accuracy и loss.'
     ]
   },
   {

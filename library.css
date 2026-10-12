@@ -57,6 +57,7 @@
 .source-banner { margin:1.25rem 0; padding:1.1rem 1.25rem; border-left:4px solid var(--accent); background:var(--formula-bg); }
 .source-banner p { margin:.35rem 0; }
 .source-banner a { font-weight:650; }
+.verified-pages { display:inline-block; padding:.35rem .55rem; border-radius:5px; background:var(--accent); color:var(--bg); font-size:.78rem; font-weight:700; }
 .official-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin:1.5rem 0; }
 .official-entry { display:grid; grid-template-columns:auto 1fr; gap:.45rem 1rem; padding:1.2rem; border:1px solid var(--card-border); border-radius:10px; text-decoration:none; background:var(--card-bg); }
 .official-entry strong,.official-entry > span:not(.reading-page):not(.arrow) { grid-column:2; }

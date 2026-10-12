@@ -197,7 +197,7 @@ function showOfficialIndex(root,bookId) {
   const list=el('div','official-list');
   book.officialExampleIds.map(officialById).forEach(example=>{
     const card=link('',officialUrl(book.id,example.id),'official-entry');
-    card.append(el('span','reading-page','Глава '+example.chapter),el('strong',null,example.title),el('span',null,example.purpose),el('span','arrow','Разобрать код →'));
+    card.append(el('span','reading-page','Глава '+example.chapter+(example.page ? ' · стр. '+example.page : '')),el('strong',null,example.title),el('span',null,example.purpose),el('span','arrow','Разобрать код →'));
     list.append(card);
   });
   root.append(list);
@@ -205,10 +205,11 @@ function showOfficialIndex(root,bookId) {
 function showOfficialExample(root,bookId,exampleId) {
   const book=bookById(bookId),example=officialById(exampleId);if(!book||!example||example.bookId!==bookId)return showNotFound(root);
   crumbs(root,[['Учебники',urlFor('books/')],[book.title,bookUrl(book.id)],['Официальный код',officialIndexUrl(book.id)],['Глава '+example.chapter]]);
-  heading(root,'Официальный пример · глава '+example.chapter,example.title,example.purpose);
+  heading(root,'Официальный пример · глава '+example.chapter+(example.page ? ' · стр. '+example.page : ''),example.title,example.purpose);
   root.append(officialNav(book,example));
   const source=el('aside','source-banner');
   source.append(el('strong',null,'Это пример из официального репозитория книги'),el('p',null,example.sourcePath+' · '+example.cells),el('p','code-note',example.excerptNote));
+  if(example.page) source.append(el('p','verified-pages','✓ Сверено с фотографиями русского издания · стр. '+example.page));
   const sourceLink=link('Посмотреть исходную ячейку на GitHub ↗',example.sourceUrl);sourceLink.target='_blank';sourceLink.rel='noopener';source.append(sourceLink);root.append(source);
   const requirements=el('section','example-requirements');requirements.append(el('h2',null,'Что понадобится'));
   const tags=el('div','requirement-tags');example.requires.forEach(item=>tags.append(el('span',null,item)));requirements.append(tags,el('p','compatibility-note',example.compatibility));root.append(requirements);
