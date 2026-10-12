@@ -5,8 +5,11 @@ const canonicalId = id => CATALOG.aliases[id] || id;
 function wikiUrl(id) { return urlFor('Formula-Wiki/' + canonicalId(id) + '/'); }
 const bookById = id => CATALOG.books.find(book => book.id === id);
 const unitById = (bookId, id) => CATALOG.units.find(unit => unit.bookId === bookId && unit.id === id);
+const officialById = id => CATALOG.officialExamples.find(example => example.id === id);
 const bookUrl = id => urlFor('books/' + id + '/');
 const unitUrl = (bookId, id) => bookUrl(bookId) + id + '/';
+const officialIndexUrl = bookId => bookUrl(bookId) + 'official-code/';
+const officialUrl = (bookId, id) => officialIndexUrl(bookId) + id + '/';
 const readingLabel = unit => 'Глава ' + unit.chapter + (unit.page ? ' · стр. ' + unit.page : ' · ' + (unit.title || unit.name || 'тема'));
 const referenceLabel = reference => readingLabel(unitById(reference.bookId, reference.unitId) || reference);
 function link(label, href, className) {
@@ -29,6 +32,7 @@ function bookCard(book) {
   card.append(el('p','book-kicker',book.status),el('h2',null,book.title),el('p','book-authors',book.authors),el('p','book-summary',book.description));
   const meta = el('div','book-meta');
   meta.append(el('span',null,book.formulaCount+' разборов'),el('span',null,book.unitIds.length+' шагов чтения'));
+  if(book.officialExampleIds.length) meta.append(el('span',null,book.officialExampleIds.length+' примеров Packt'));
   card.append(meta,el('p','book-open','Читать по порядку →'));
   return card;
 }
@@ -103,6 +107,13 @@ function showFormula(root,id) {
   backlinks.append(el('h2',null,'В учебниках'));
   for (const ref of formula.references) backlinks.append(link(bookById(ref.bookId).title+' · '+referenceLabel(ref),unitUrl(ref.bookId,ref.unitId)+'#lesson-'+ref.lessonId,'reference-link'));
   root.append(backlinks);
+  const official = CATALOG.officialExamples.filter(example => example.relatedFormulaIds.map(canonicalId).includes(formula.id));
+  if (official.length) {
+    const sources = el('section','official-references');
+    sources.append(el('h2',null,'В официальном коде книги'));
+    official.forEach(example => sources.append(link('Глава '+example.chapter+' · '+example.title+' →',officialUrl(example.bookId,example.id),'reference-link')));
+    root.append(sources);
+  }
   const card = buildCard({...formula,order:0},{general:true,openExample:true});
   root.append(card,pythonPanel(formula.references[0].lessonId));
   if (formula.id==='softmax') {
@@ -119,6 +130,12 @@ function showBook(root,id) {
   let last;try{last=localStorage.getItem('reading:'+book.id);}catch{}
   const start = book.unitIds.includes(last) ? last : book.unitIds[0];
   root.append(link(last && start===last ? 'Продолжить чтение →' : 'Начать чтение →',unitUrl(book.id,start),'primary-link'));
+  if(book.officialExampleIds.length) {
+    const official=el('section','official-promo');
+    official.append(el('p','eyebrow','Код непосредственно к книге'),el('h2',null,'11 официальных примеров Packt'),el('p',null,'Не наши демонстрации: реальные ноутбуки и скрипты CH01–CH11 из публичного репозитория книги. Для каждого показаны источник, зависимости, объяснение шагов и замечания о совместимости.'));
+    official.append(link('Открыть официальный код по главам →',officialIndexUrl(book.id),'primary-link'));
+    root.append(official);
+  }
   const items=[],groups=[],container=el('div','chapter-list');
   const bookUnits=book.unitIds.map(unitId=>unitById(id,unitId));
   for (const chapter of [...new Set(bookUnits.map(u=>u.chapter))]) {
@@ -163,6 +180,48 @@ function showLesson(root,bookId,unitId) {
   });
   root.append(readerNav(book,unit));try{localStorage.setItem('reading:'+bookId,unitId);}catch{}
 }
+function officialNav(book, example) {
+  const items=book.officialExampleIds.map(officialById),index=items.findIndex(item=>item.id===example.id);
+  const nav=el('nav','reader-nav');nav.setAttribute('aria-label','Официальные примеры по главам');
+  nav.append(index>0 ? link('← Глава '+items[index-1].chapter,officialUrl(book.id,items[index-1].id)) : link('← Все примеры',officialIndexUrl(book.id)));
+  nav.append(index<items.length-1 ? link('Глава '+items[index+1].chapter+' →',officialUrl(book.id,items[index+1].id)) : link('К оглавлению книги →',bookUrl(book.id)));
+  return nav;
+}
+function showOfficialIndex(root,bookId) {
+  const book=bookById(bookId);if(!book||!book.officialExampleIds.length)return showNotFound(root);
+  crumbs(root,[['Учебники',urlFor('books/')],[book.title,bookUrl(book.id)],['Официальный код Packt']]);
+  heading(root,'CH01–CH11 · MIT License','Официальные примеры к книге','Это код из публичного репозитория PacktPublishing/Mastering-Transformers, а не примеры, придуманные для сайта. Мы добавили русское объяснение и ссылки на математическую основу.');
+  const license=el('aside','source-banner');
+  license.append(el('strong',null,'Источник и лицензия'),el('p',null,'Mastering Transformers · Copyright © 2021 Packt · MIT License. Фрагменты привязаны к commit f088d75, поэтому ссылка всегда ведёт именно на разобранную версию.'));
+  const repo=link('Открыть официальный репозиторий ↗','https://github.com/PacktPublishing/Mastering-Transformers');repo.target='_blank';repo.rel='noopener';license.append(repo);root.append(license);
+  const list=el('div','official-list');
+  book.officialExampleIds.map(officialById).forEach(example=>{
+    const card=link('',officialUrl(book.id,example.id),'official-entry');
+    card.append(el('span','reading-page','Глава '+example.chapter),el('strong',null,example.title),el('span',null,example.purpose),el('span','arrow','Разобрать код →'));
+    list.append(card);
+  });
+  root.append(list);
+}
+function showOfficialExample(root,bookId,exampleId) {
+  const book=bookById(bookId),example=officialById(exampleId);if(!book||!example||example.bookId!==bookId)return showNotFound(root);
+  crumbs(root,[['Учебники',urlFor('books/')],[book.title,bookUrl(book.id)],['Официальный код',officialIndexUrl(book.id)],['Глава '+example.chapter]]);
+  heading(root,'Официальный пример · глава '+example.chapter,example.title,example.purpose);
+  root.append(officialNav(book,example));
+  const source=el('aside','source-banner');
+  source.append(el('strong',null,'Это пример из официального репозитория книги'),el('p',null,example.sourcePath+' · '+example.cells),el('p','code-note',example.excerptNote));
+  const sourceLink=link('Посмотреть исходную ячейку на GitHub ↗',example.sourceUrl);sourceLink.target='_blank';sourceLink.rel='noopener';source.append(sourceLink);root.append(source);
+  const requirements=el('section','example-requirements');requirements.append(el('h2',null,'Что понадобится'));
+  const tags=el('div','requirement-tags');example.requires.forEach(item=>tags.append(el('span',null,item)));requirements.append(tags,el('p','compatibility-note',example.compatibility));root.append(requirements);
+  const panel=el('section','python-panel official-code');panel.append(el('h2',null,'Код Packt'));
+  const actions=el('div','code-actions');
+  const copy=el('button',null,'Копировать код');copy.type='button';copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(example.code);copy.textContent='Скопировано';}catch{copy.textContent='Выделите код вручную';}});
+  const download=link('Скачать .py',urlFor('examples/packt-'+example.id+'.py'));download.download='packt-'+example.id+'.py';
+  actions.append(copy,download);const pre=el('pre');pre.append(el('code',null,example.code));panel.append(actions,pre);root.append(panel);
+  const walkthrough=el('section','code-walkthrough');walkthrough.append(el('h2',null,'Разбираем по шагам'));
+  const steps=el('ol');example.walkthrough.forEach(step=>steps.append(el('li',null,step)));walkthrough.append(steps);root.append(walkthrough);
+  const related=el('section','related-formulas');related.append(el('h2',null,'Математическая основа в Formula Wiki'));
+  example.relatedFormulaIds.forEach(id=>{const formula=CATALOG.formulas.find(item=>item.id===canonicalId(id));related.append(link(formula.name+' →',wikiUrl(id),'reference-link'));});root.append(related,officialNav(book,example));
+}
 function showNotFound(root){heading(root,'404','Страница не найдена','Откройте справочник формул или оглавление нужного учебника.');root.append(link('Справочник формул →',urlFor('Formula-Wiki/'),'primary-link'));showBooks(root,false);}
 document.addEventListener('DOMContentLoaded',()=>{
   const legacy=location.hash.match(/^#formula-(.+)$/);
@@ -176,6 +235,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     case 'book':showBook(root,ML_PAGE.id);break;
     case 'formula':showFormula(root,ML_PAGE.id);break;
     case 'lesson':showLesson(root,ML_PAGE.bookId,ML_PAGE.unitId);break;
+    case 'official-code-index':showOfficialIndex(root,ML_PAGE.bookId);break;
+    case 'official-code':showOfficialExample(root,ML_PAGE.bookId,ML_PAGE.exampleId);break;
     default:showNotFound(root);
   }
   const toggle=document.getElementById('theme-toggle');

@@ -32,8 +32,8 @@
 .reading-entry { display:grid; grid-template-columns:5rem 1fr 1rem; gap:1rem; text-decoration:none; padding:1rem .5rem; border-bottom:1px solid var(--card-border); font-size:.94rem; }
 .reading-entry:hover { background:var(--card-bg); }
 .reading-page { color:var(--muted); font-size:.8rem; padding-top:.1rem; }
-.reading-context,.book-references { padding:1.2rem 1.4rem; border:1px solid var(--card-border); border-radius:10px; background:var(--card-bg); margin:1.3rem 0; }
-.reading-context h2,.book-references h2 { margin:0 0 .5rem; font-size:1.1rem; }
+.reading-context,.book-references,.official-references { padding:1.2rem 1.4rem; border:1px solid var(--card-border); border-radius:10px; background:var(--card-bg); margin:1.3rem 0; }
+.reading-context h2,.book-references h2,.official-references h2 { margin:0 0 .5rem; font-size:1.1rem; }
 .reading-context p { margin:0; }
 .reading-notice { padding:.8rem 1rem; border-left:3px solid var(--accent); background:var(--formula-bg); font-size:.85rem; }
 .reading-note,.reading-progress { color:var(--muted); font-size:.83rem; }
@@ -51,6 +51,25 @@
 .code-note { color:var(--muted); font-size:.82rem; }
 .python-panel pre { margin:.8rem 0 0; padding:1rem; background:var(--card-bg); border-radius:6px; overflow:auto; max-width:100%; font-size:.82rem; line-height:1.65; tab-size:4; }
 .python-output { border-left:3px solid var(--accent); }
+.official-promo { margin:1.5rem 0 2rem; padding:1.5rem; border:2px solid var(--accent); border-radius:12px; background:var(--formula-bg); }
+.official-promo h2 { margin:.35rem 0 .65rem; }
+.official-promo .primary-link { margin:1rem 0 0; }
+.source-banner { margin:1.25rem 0; padding:1.1rem 1.25rem; border-left:4px solid var(--accent); background:var(--formula-bg); }
+.source-banner p { margin:.35rem 0; }
+.source-banner a { font-weight:650; }
+.official-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin:1.5rem 0; }
+.official-entry { display:grid; grid-template-columns:auto 1fr; gap:.45rem 1rem; padding:1.2rem; border:1px solid var(--card-border); border-radius:10px; text-decoration:none; background:var(--card-bg); }
+.official-entry strong,.official-entry > span:not(.reading-page):not(.arrow) { grid-column:2; }
+.official-entry .reading-page { grid-row:1 / span 3; min-width:4rem; color:var(--accent); font-weight:700; }
+.official-entry .arrow { grid-column:2; color:var(--accent); font-weight:650; margin-top:.4rem; }
+.example-requirements,.code-walkthrough,.related-formulas { margin:1.5rem 0; }
+.example-requirements h2,.code-walkthrough h2,.related-formulas h2,.official-code h2 { font-size:1.15rem; }
+.requirement-tags { display:flex; flex-wrap:wrap; gap:.45rem; }
+.requirement-tags span { padding:.35rem .55rem; border:1px solid var(--card-border); border-radius:999px; background:var(--card-bg); font-size:.78rem; }
+.compatibility-note { padding:.8rem 1rem; border-left:3px solid #d69200; background:var(--card-bg); font-size:.85rem; }
+.code-walkthrough ol { padding-left:1.4rem; }
+.code-walkthrough li { margin:.65rem 0; padding-left:.35rem; }
+.official-code pre { max-height:46rem; }
 .code-actions { display:flex; align-items:center; flex-wrap:wrap; gap:1rem; font-size:.83rem; }
 .code-actions button { background:var(--surface-bg); color:var(--accent); border:1px solid var(--card-border); border-radius:5px; padding:.4rem .7rem; cursor:pointer; }
 .library-footer { max-width:64rem; margin:auto; padding:1.5rem 2rem; border-top:1px solid var(--card-border); font-size:.78rem; color:var(--muted); }
@@ -66,6 +85,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible { outline:2px solid v
   #app.library-app { padding:1rem 1rem 3rem; }
   .page-intro { margin:1rem 0 1.5rem; }
   .formula-directory,.learning-flow { grid-template-columns:1fr; }
+  .official-list { grid-template-columns:1fr; }
   .learning-flow { gap:0; margin:1rem 0 2rem; }
   .reading-entry { grid-template-columns:3.5rem 1fr 1rem; gap:.6rem; }
   .reader-nav { flex-wrap:wrap; }
