@@ -1,7 +1,7 @@
 // Рендер шпаргалки из data/formulas.js: оглавление по блокам, карточки
 // со всеми 7 полями, поиск по названию, копирование LaTeX.
 
-const BLOCKS = {
+const DEFAULT_BLOCKS = {
   E: "Персептрон и ADALINE",
   A: "Основы обучения",
   B: "Логистическая регрессия",
@@ -18,7 +18,19 @@ const BLOCKS = {
   N: "Функции активации нейронных сетей"
 };
 
+const ACTIVE_BOOK_CONFIG = typeof BOOK_CONFIG === "object" ? BOOK_CONFIG : {};
+const BLOCKS = ACTIVE_BOOK_CONFIG.blocks || DEFAULT_BLOCKS;
+const SECTION_PREFIX = ACTIVE_BOOK_CONFIG.sectionPrefix || "Блок";
+
+function sourceReference(formula, compact = false) {
+  if (formula.page !== undefined && formula.page !== null && formula.page !== "") {
+    return compact ? " стр. " + formula.page : "(" + formula.chapter + ", стр. " + formula.page + ")";
+  }
+  return compact ? " " + formula.chapter : "(" + formula.chapter + ")";
+}
+
 function tex(el, latex, displayMode) {
+  if (typeof katex === "undefined") { el.textContent = latex; return; }
   katex.render(latex, el, { displayMode: !!displayMode, throwOnError: false });
 }
 
@@ -172,7 +184,7 @@ function setupAutoLinkTargets(formulas) {
 
 function makeTextLink(text, formulaId) {
   const anchor = el("a", "internal-link", text);
-  anchor.href = "#formula-" + formulaId;
+  anchor.href = typeof ML_SITE !== "undefined" ? wikiUrl(formulaId) : "#formula-" + formulaId;
   return anchor;
 }
 
@@ -445,7 +457,7 @@ function setupAnchorNavigation() {
   });
 }
 
-function buildCard(f) {
+function buildCard(f, options = {}) {
   const card = el("article", "formula-card");
   card.id = "formula-" + f.id;
   card.dataset.name = f.name.toLowerCase();
@@ -457,8 +469,8 @@ function buildCard(f) {
   card.appendChild(anchorBack);
 
   // Заголовок: номер, название, страница
-  const title = el("h3", null, f.order + ". " + f.name + " ");
-  const ref = el("span", "page-ref", "(" + f.chapter + ", стр. " + f.page + ")");
+  const title = el("h3", null, (options.general ? "" : f.order + ". ") + f.name + " ");
+  const ref = el("span", "page-ref", options.general ? "" : sourceReference(f));
   title.appendChild(ref);
   card.appendChild(title);
 
@@ -499,10 +511,11 @@ function buildCard(f) {
   }
 
   // Разобранный пример — главная поясняющая часть каждой карточки.
-  const example = WORKED_EXAMPLES[f.id];
+  const example = options.example || WORKED_EXAMPLES[f.id];
   if (example) {
     const details = document.createElement("details");
     details.className = "worked-example";
+    details.open = !!options.openExample;
     details.appendChild(el("summary", null, "Разобранный пример"));
 
     const content = el("div", "worked-example-content");
@@ -572,6 +585,8 @@ function buildCard(f) {
     card.appendChild(details);
   }
 
+  if (options.bookView) return card;
+
   // Год и автор
   const meta = el("p", "discovered");
   meta.append(el("strong", null, "Кто и когда: "));
@@ -604,6 +619,21 @@ function buildCard(f) {
   for (const ex of f.examples) ul.appendChild(linkedEl("li", null, ex, f.id));
   card.appendChild(ul);
 
+  if (f.resources && f.resources.length) {
+    card.appendChild(el("h4", null, "Код и материалы"));
+    const resources = el("ul", "resources");
+    for (const resource of f.resources) {
+      const li = el("li");
+      const link = el("a", null, resource.label);
+      link.href = resource.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      li.appendChild(link);
+      resources.appendChild(li);
+    }
+    card.appendChild(resources);
+  }
+
   return card;
 }
 
@@ -614,7 +644,7 @@ function buildToc(sorted) {
   for (const f of sorted) {
     if (f.block !== currentBlock) {
       currentBlock = f.block;
-      toc.appendChild(el("h3", null, "Блок " + currentBlock + ". " + BLOCKS[currentBlock]));
+      toc.appendChild(el("h3", null, SECTION_PREFIX + " " + currentBlock + ". " + BLOCKS[currentBlock]));
       list = el("ol", "toc-list");
       toc.appendChild(list);
     }
@@ -622,7 +652,7 @@ function buildToc(sorted) {
     const a = el("a", null, f.name);
     a.href = "#formula-" + f.id;
     li.appendChild(a);
-    li.appendChild(el("span", "page-ref", " стр. " + f.page));
+    li.appendChild(el("span", "page-ref", sourceReference(f, true)));
     list.appendChild(li);
   }
   return toc;
@@ -645,6 +675,7 @@ function applySearch(query) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  if (typeof ML_SITE !== "undefined") return;
   const root = document.getElementById("app");
   const sorted = [...FORMULAS].sort((a, b) => a.order - b.order);
   setupAutoLinkTargets(sorted);
@@ -668,7 +699,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (f.block !== currentBlock) {
       currentBlock = f.block;
       section = el("section", "block-section");
-      section.appendChild(el("h2", "block-title", "Блок " + currentBlock + ". " + BLOCKS[currentBlock]));
+      section.appendChild(el("h2", "block-title", SECTION_PREFIX + " " + currentBlock + ". " + BLOCKS[currentBlock]));
       root.appendChild(section);
     }
     section.appendChild(buildCard(f));

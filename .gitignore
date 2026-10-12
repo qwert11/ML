@@ -3,3 +3,5 @@ plan/books/
 
 # Артефакты браузерного тестирования (Playwright MCP)
 .playwright-mcp/
+.playwright-cli/
+output/playwright/

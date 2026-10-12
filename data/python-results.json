@@ -1,0 +1,338 @@
+{
+  "unit-step-function": {
+    "code": "z = -0.4\nprediction = 1 if z >= 0 else -1  # сравниваем сумму с порогом\nprint(prediction)",
+    "output": "-1"
+  },
+  "net-input": {
+    "code": "weights = [-1, 0.5, 1]\nx = [1, 2, 3]  # первая единица отвечает за свободный член\nz = sum(w * value for w, value in zip(weights, x))\nprint(z)",
+    "output": "3.0"
+  },
+  "perceptron-rule": {
+    "code": "eta, y, prediction, x, weight = 0.1, 1, -1, 2, 0.5\ndelta = eta * (y - prediction) * x\nprint(delta, weight + delta)",
+    "output": "0.4 0.9"
+  },
+  "sse-cost": {
+    "code": "y, prediction = [1, 3], [2, 2]\nloss = sum((a - b)**2 for a, b in zip(y, prediction)) / 2\nprint(loss)",
+    "output": "1.0"
+  },
+  "batch-gradient-descent": {
+    "code": "weight, gradient, eta = 4, 3, 0.1\ndelta = -eta * gradient  # идём против роста ошибки\nprint(delta, weight + delta)",
+    "output": "-0.30000000000000004 3.7"
+  },
+  "sse-gradient": {
+    "code": "y, prediction, x = 3, 2, 4\ngradient = -(y - prediction) * x\nprint(gradient)",
+    "output": "-4"
+  },
+  "standardization": {
+    "code": "x, mean, std = 185, 170, 10\nprint((x - mean) / std)  # расстояние от среднего в единицах std",
+    "output": "1.5"
+  },
+  "sgd-update": {
+    "code": "eta, y, prediction, x = 0.1, 1, 0.6, 2\ndelta = eta * (y - prediction) * x\nprint(round(delta, 6))",
+    "output": "0.08"
+  },
+  "adaptive-learning-rate": {
+    "code": "c1, c2 = 1, 10\nfor iteration in [0, 90]:\n    print(iteration, c1 / (iteration + c2))",
+    "output": "0 0.1\r\n90 0.01"
+  },
+  "odds-ratio": {
+    "code": "p = 0.75\nprint(p / (1 - p))",
+    "output": "3.0"
+  },
+  "logit": {
+    "code": "from math import log\np = 0.8\nprint(round(log(p / (1 - p)), 6))",
+    "output": "1.386294"
+  },
+  "sigmoid": {
+    "code": "from math import exp\nz = 2\np = 1 / (1 + exp(-z))\nprint(round(p, 6))",
+    "output": "0.880797"
+  },
+  "likelihood": {
+    "code": "y, p = [1, 0], [0.8, 0.3]\nlikelihood = 1.0\nfor label, probability in zip(y, p):\n    likelihood *= probability**label * (1 - probability)**(1 - label)\nprint(round(likelihood, 6))",
+    "output": "0.56"
+  },
+  "log-likelihood": {
+    "code": "from math import log\ny, p = [1, 0], [0.8, 0.3]\nterms = [label * log(prob) + (1 - label) * log(1 - prob)\n         for label, prob in zip(y, p)]\nprint([round(term, 6) for term in terms])\nprint(round(sum(terms), 6))",
+    "output": "[-0.223144, -0.356675]\r\n-0.579818"
+  },
+  "logistic-cost": {
+    "code": "from math import log\ny, p = [1, 0], [0.8, 0.3]\nloss = -sum(label * log(prob) + (1 - label) * log(1 - prob)\n            for label, prob in zip(y, p))\nprint(round(loss, 6))  # сумма; для среднего разделите на len(y)",
+    "output": "0.579818"
+  },
+  "sigmoid-derivative": {
+    "code": "p = 0.8\nderivative = p * (1 - p)\nprint(round(derivative, 6))",
+    "output": "0.16"
+  },
+  "log-likelihood-partial-weight": {
+    "code": "y, p, x = 1, 0.8, 2\ndp_dw = p * (1 - p) * x\ndl_dw = (y / p - (1 - y) / (1 - p)) * dp_dw\nprint(round(dl_dw, 6))",
+    "output": "0.4"
+  },
+  "sigmoid-chain-weight": {
+    "code": "p, x = 0.8, 2\ndp_dz = p * (1 - p)\ndz_dw = x\nprint(round(dp_dz * dz_dw, 6))",
+    "output": "0.32"
+  },
+  "logistic-gradient-component": {
+    "code": "y, p, x = [1, 0], [0.8, 0.3], [2, 1]\ngradient = -sum((label - prob) * feature\n                for label, prob, feature in zip(y, p, x))\nprint(round(gradient, 6))  # градиент отрицательного log-likelihood",
+    "output": "-0.1"
+  },
+  "logistic-regression-weight-update": {
+    "code": "weight, eta = 0.5, 0.1\ny, p, x = [1, 0], [0.8, 0.3], [2, 1]\ndelta = eta * sum((label - prob) * feature\n                  for label, prob, feature in zip(y, p, x))\nprint(round(delta, 6), round(weight + delta, 6))",
+    "output": "0.01 0.51"
+  },
+  "l2-regularization": {
+    "code": "weights, lam = [3, 4], 0.2\npenalty = lam / 2 * sum(w*w for w in weights)\nprint(penalty, 1 / lam)  # штраф и C для этой записи",
+    "output": "2.5 5.0"
+  },
+  "svm-margin": {
+    "code": "from math import sqrt\nweights = [3, 4]\nprint(2 / sqrt(sum(w*w for w in weights)))",
+    "output": "0.4"
+  },
+  "svm-soft-margin": {
+    "code": "weights, slack, C = [1, 2], [0, 0.5, 1], 2\nobjective = sum(w*w for w in weights) / 2 + C * sum(slack)\nprint(objective)",
+    "output": "5.5"
+  },
+  "kernel-trick": {
+    "code": "x, y = [1, 2], [2, 1]\nphi = lambda v: [v[0]**2, 2**0.5 * v[0]*v[1], v[1]**2]\ndot = lambda a, b: sum(x*y for x, y in zip(a, b))\nprint(round(dot(phi(x), phi(y)), 6), dot(x, y)**2)",
+    "output": "16.0 16"
+  },
+  "rbf-kernel": {
+    "code": "from math import exp\nx, y, gamma = [1, 2], [2, 4], 0.5\ndistance_squared = sum((a-b)**2 for a, b in zip(x, y))\nprint(round(exp(-gamma * distance_squared), 6))",
+    "output": "0.082085"
+  },
+  "information-gain": {
+    "code": "parent_impurity = 0.5\nchildren = [(6, 0.25), (4, 0.0)]  # размер и неоднородность\ngain = parent_impurity - sum(size / 10 * impurity for size, impurity in children)\nprint(round(gain, 6))",
+    "output": "0.35"
+  },
+  "entropy": {
+    "code": "from math import log2\nprobabilities = [0.5, 0.5]\nentropy = -sum(p * log2(p) for p in probabilities if p > 0)\nprint(entropy)  # биты, поскольку логарифм по основанию 2",
+    "output": "1.0"
+  },
+  "gini-impurity": {
+    "code": "probabilities = [0.5, 0.5]\nprint(1 - sum(p*p for p in probabilities))",
+    "output": "0.5"
+  },
+  "classification-error": {
+    "code": "probabilities = [0.7, 0.3]\nprint(round(1 - max(probabilities), 6))",
+    "output": "0.3"
+  },
+  "minkowski-distance": {
+    "code": "x, y = [1, 2], [4, 6]\nfor p in [1, 2]:\n    distance = sum(abs(a-b)**p for a, b in zip(x, y))**(1/p)\n    print(p, distance)",
+    "output": "1 7.0\r\n2 5.0"
+  },
+  "min-max-scaling": {
+    "code": "x, minimum, maximum = 15, 10, 20\nprint((x - minimum) / (maximum - minimum))",
+    "output": "0.5"
+  },
+  "l1-regularization": {
+    "code": "weights = [-2, 3]\nprint(sum(abs(w) for w in weights))",
+    "output": "5"
+  },
+  "covariance": {
+    "code": "import numpy as np\nx, y = np.array([1., 2., 3.]), np.array([2., 4., 6.])\ncov = ((x - x.mean()) * (y - y.mean())).sum() / (len(x) - 1)\nprint(cov)  # выборочная ковариация: знаменатель n-1",
+    "output": "2.0"
+  },
+  "eigen-decomposition": {
+    "code": "import numpy as np\nmatrix = np.array([[2., 0.], [0., 1.]])\nvalues, vectors = np.linalg.eigh(matrix)\nprint(values)\nprint(np.allclose(matrix @ vectors, vectors * values))",
+    "output": "[1. 2.]\r\nTrue"
+  },
+  "explained-variance-ratio": {
+    "code": "eigenvalues = [4, 1]\nprint([value / sum(eigenvalues) for value in eigenvalues])",
+    "output": "[0.8, 0.2]"
+  },
+  "pca-projection": {
+    "code": "import numpy as np\nx = np.array([2., 3.])  # уже центрированные признаки\nW = np.array([[1.], [0.]])\nprint(x @ W)  # из двух координат в одну",
+    "output": "[2.]"
+  },
+  "lda-mean-vector": {
+    "code": "import numpy as np\nclass_samples = np.array([[1., 2.], [3., 4.]])\nprint(class_samples.mean(axis=0))",
+    "output": "[2. 3.]"
+  },
+  "lda-within-scatter": {
+    "code": "import numpy as np\nclasses = [np.array([[1., 2.], [3., 4.]]), np.array([[6., 3.], [8., 5.]])]\nscatter = np.zeros((2, 2))\nfor samples in classes:\n    centered = samples - samples.mean(axis=0)\n    scatter += centered.T @ centered\nprint(scatter)",
+    "output": "[[4. 4.]\r\n [4. 4.]]"
+  },
+  "lda-between-scatter": {
+    "code": "import numpy as np\nclasses = [np.array([[1., 2.], [3., 4.]]), np.array([[6., 3.], [8., 5.]])]\noverall = np.concatenate(classes).mean(axis=0)\nscatter = np.zeros((2, 2))\nfor samples in classes:\n    delta = samples.mean(axis=0) - overall\n    scatter += len(samples) * np.outer(delta, delta)\nprint(scatter)",
+    "output": "[[25.  5.]\r\n [ 5.  1.]]"
+  },
+  "kernel-matrix": {
+    "code": "import numpy as np\nX = np.array([[1., 2.], [3., 4.]])\nprint(X @ X.T)  # линейное ядро: phi(X) = X",
+    "output": "[[ 5. 11.]\r\n [11. 25.]]"
+  },
+  "polynomial-kernel": {
+    "code": "x, y, degree, offset = [1, 2], [2, 1], 2, 1\nprint((sum(a*b for a, b in zip(x, y)) + offset)**degree)",
+    "output": "25"
+  },
+  "sigmoid-kernel": {
+    "code": "from math import tanh\nx, y, gamma, offset = [1, 2], [2, 1], 0.5, 0\nprint(round(tanh(gamma * sum(a*b for a, b in zip(x, y)) + offset), 6))",
+    "output": "0.964028"
+  },
+  "kernel-centering": {
+    "code": "import numpy as np\nK = np.array([[1., 2.], [2., 4.]])\nH = np.eye(len(K)) - np.ones_like(K) / len(K)\ncentered = H @ K @ H\nprint(centered)\nprint(centered.mean(axis=0))",
+    "output": "[[ 0.25 -0.25]\r\n [-0.25  0.25]]\r\n[0. 0.]"
+  },
+  "error-accuracy": {
+    "code": "truth, predicted = [1, 0, 1, 1], [1, 0, 0, 1]\nerror = sum(a != b for a, b in zip(truth, predicted)) / len(truth)\nprint(error, 1 - error)",
+    "output": "0.25 0.75"
+  },
+  "fpr-tpr": {
+    "code": "FP, TN, TP, FN = 4, 16, 8, 2\nprint(FP / (FP + TN), TP / (TP + FN))",
+    "output": "0.2 0.8"
+  },
+  "precision-recall": {
+    "code": "TP, FP, FN = 8, 2, 4\nprint(TP / (TP + FP), round(TP / (TP + FN), 6))",
+    "output": "0.8 0.666667"
+  },
+  "f1-score": {
+    "code": "precision, recall = 0.8, 0.5\nprint(round(2 * precision * recall / (precision + recall), 6))",
+    "output": "0.615385"
+  },
+  "majority-voting": {
+    "code": "from collections import Counter\nvotes = ['cat', 'dog', 'cat']\nprint(Counter(votes).most_common(1)[0][0])",
+    "output": "cat"
+  },
+  "ensemble-error": {
+    "code": "from math import comb\nn, error = 3, 0.2\nprobability = sum(comb(n, k) * error**k * (1-error)**(n-k)\n                  for k in range(n//2 + 1, n+1))\nprint(round(probability, 6))  # предполагаем независимые ошибки",
+    "output": "0.104"
+  },
+  "weighted-majority-voting": {
+    "code": "votes, weights = [1, 0], [0.7, 0.3]\nscores = {label: sum(w for vote, w in zip(votes, weights) if vote == label)\n          for label in set(votes)}\nprint(max(scores, key=scores.get))",
+    "output": "1"
+  },
+  "probability-voting": {
+    "code": "probabilities = [[0.1, 0.9], [0.4, 0.6]]\nscores = [sum(row[i] for row in probabilities) for i in range(2)]\nprint(scores, max(range(2), key=lambda i: scores[i]))",
+    "output": "[0.5, 1.5] 1"
+  },
+  "adaboost": {
+    "code": "from math import log, exp\nerror = 0.2\nalpha = 0.5 * log((1-error) / error)\nweights, y, predicted = [0.5, 0.5], [1, -1], [1, 1]\nupdated = [w * exp(-alpha * target * guess)\n           for w, target, guess in zip(weights, y, predicted)]\nprint(round(alpha, 6))\nprint([round(w / sum(updated), 6) for w in updated])",
+    "output": "0.693147\r\n[0.2, 0.8]"
+  },
+  "tf-idf": {
+    "code": "from math import log\ntf, n_documents, document_frequency = 3, 100, 9\nidf = log(n_documents / (1 + document_frequency))  # вариант записи в конспекте\nprint(round(idf, 6), round(tf * idf, 6))",
+    "output": "2.302585 6.907755"
+  },
+  "multiple-linear-regression": {
+    "code": "intercept, weights, x = 20, [2, -1], [50, 3]\nprint(intercept + sum(w*value for w, value in zip(weights, x)))",
+    "output": "117"
+  },
+  "pearson-correlation": {
+    "code": "import numpy as np\nx, y = [1, 2, 3], [2, 4, 6]\nprint(round(float(np.corrcoef(x, y)[0, 1]), 6))",
+    "output": "1.0"
+  },
+  "mse": {
+    "code": "truth, prediction = [2, 4], [3, 2]\nprint(sum((y-p)**2 for y, p in zip(truth, prediction)) / len(truth))",
+    "output": "2.5"
+  },
+  "r-squared": {
+    "code": "residual_sum, total_sum = 20, 100\nprint(1 - residual_sum / total_sum)",
+    "output": "0.8"
+  },
+  "ridge-regression": {
+    "code": "loss, weights, lam = 5, [3, 4], 0.1\nprint(loss + lam * sum(w*w for w in weights))",
+    "output": "7.5"
+  },
+  "lasso-regression": {
+    "code": "loss, weights, lam = 5, [-2, 3], 0.5\nprint(loss + lam * sum(abs(w) for w in weights))",
+    "output": "7.5"
+  },
+  "elastic-net": {
+    "code": "loss, weights, l2, l1 = 4, [1, -2], 0.1, 0.2\nprint(loss + l2 * sum(w*w for w in weights) + l1 * sum(abs(w) for w in weights))",
+    "output": "5.1"
+  },
+  "polynomial-regression": {
+    "code": "x = 3\nprint(1 + 2*x + 0.5*x*x)",
+    "output": "11.5"
+  },
+  "squared-euclidean-distance": {
+    "code": "x, y = [1, 2], [4, 6]\nprint(sum((a-b)**2 for a, b in zip(x, y)))",
+    "output": "25"
+  },
+  "kmeans-sse": {
+    "code": "points, center = [1, 5], 3\nprint(sum((point-center)**2 for point in points))",
+    "output": "8"
+  },
+  "fcm-objective": {
+    "code": "membership, distance, m = 0.8, 1, 2\nprint(round(membership**m * distance**2, 6))",
+    "output": "0.64"
+  },
+  "fcm-membership": {
+    "code": "distances, m = [1, 2], 2\n# Для нулевого расстояния нужна отдельная ветка; здесь все расстояния > 0.\nmemberships = [1 / sum((di/dj)**(2/(m-1)) for dj in distances) for di in distances]\nprint(memberships)",
+    "output": "[0.8, 0.2]"
+  },
+  "silhouette": {
+    "code": "a, b = 2, 5\nprint((b-a) / max(a, b))",
+    "output": "0.6"
+  },
+  "mlp-hidden-activation": {
+    "code": "from math import exp\ninputs, weights = [1, 2], [0.5, 1]\nz = sum(a*w for a, w in zip(inputs, weights))\nprint(z, round(1 / (1 + exp(-z)), 6))",
+    "output": "2.5 0.924142"
+  },
+  "mlp-forward-propagation": {
+    "code": "from math import exp\nsigmoid = lambda z: 1 / (1 + exp(-z))\nhidden = sigmoid(2 * 0.5)\noutput = sigmoid(hidden * 2)\nprint(round(hidden, 6), round(output, 6))",
+    "output": "0.731059 0.811856"
+  },
+  "mlp-cost": {
+    "code": "from math import log\ny, activation = 1, 0.8\nloss = -(y*log(activation) + (1-y)*log(1-activation))\nprint(round(loss, 6))  # один выход, без регуляризации",
+    "output": "0.223144"
+  },
+  "backpropagation": {
+    "code": "y, output, hidden, weight = 1, 0.8, 0.5, 2\ndelta_output = output - y\ndelta_hidden = weight * delta_output * hidden * (1-hidden)\ngradient = hidden * delta_output\nprint([round(x, 6) for x in [delta_output, delta_hidden, gradient]])",
+    "output": "[-0.2, -0.1, -0.1]"
+  },
+  "gradient-checking": {
+    "code": "loss = lambda w: w*w\nw, eps = 3, 0.01\nnumeric = (loss(w+eps) - loss(w-eps)) / (2*eps)\nanalytic = 2*w\nprint(round(numeric, 6), abs(numeric-analytic) < 1e-9)",
+    "output": "6.0 True"
+  },
+  "softmax": {
+    "code": "from math import exp\nscores = [2, 1, 0]\nexponents = [exp(z-max(scores)) for z in scores]  # устойчивый softmax\nprobabilities = [e/sum(exponents) for e in exponents]\nprint([round(p, 6) for p in probabilities])\nassert abs(sum(probabilities)-1) < 1e-12",
+    "output": "[0.665241, 0.244728, 0.090031]"
+  },
+  "tanh-activation": {
+    "code": "from math import tanh\nprint(round(tanh(1), 6))",
+    "output": "0.761594"
+  },
+  "qkv-projections": {
+    "code": "import numpy as np\nX = np.array([[1., 2.]])  # [число токенов, размерность модели]\nWq = np.eye(2)\nWk = np.array([[0., 1.], [1., 0.]])\nWv = 2 * np.eye(2)\nQ, K, V = X @ Wq, X @ Wk, X @ Wv\nprint('Q:', Q, 'K:', K, 'V:', V)",
+    "output": "Q: [[1. 2.]] K: [[2. 1.]] V: [[2. 4.]]"
+  },
+  "attention-scores": {
+    "code": "import numpy as np\nQ = np.array([[1., 0.]])\nK = np.array([[1., 0.], [0., 1.]])\nscores = Q @ K.T / np.sqrt(K.shape[-1])\nprint(np.round(scores, 6))  # [1 query, 2 keys]",
+    "output": "[[0.707107 0.      ]]"
+  },
+  "attention-softmax": {
+    "code": "from math import exp\nscores = [1., 2.]\nexponents = [exp(s-max(scores)) for s in scores]\nweights = [x/sum(exponents) for x in exponents]\nprint([round(w, 6) for w in weights])\nassert abs(sum(weights)-1) < 1e-12",
+    "output": "[0.268941, 0.731059]"
+  },
+  "attention-output": {
+    "code": "import numpy as np\n# Входы выбраны так, чтобы softmax(scores) дал веса [0.67, 0.33].\nQ = np.array([[1.]])\nK = np.log(np.array([[0.67], [0.33]]))\nV = np.array([[10., 0.], [0., 20.]])\nscores = Q @ K.T / np.sqrt(K.shape[-1])\nweights = np.exp(scores - scores.max(axis=-1, keepdims=True))\nweights /= weights.sum(axis=-1, keepdims=True)\ncontext = weights @ V\nprint(weights)\nprint(context)\nassert np.allclose(context, [[6.7, 6.6]])",
+    "output": "[[0.67 0.33]]\r\n[[6.7 6.6]]"
+  },
+  "multi-head-attention": {
+    "code": "import numpy as np\nheads = [np.array([[1., 2.]]), np.array([[3., 4.]])]\nW_output = np.eye(4)\njoined = np.concatenate(heads, axis=-1)  # объединяем признаки, не токены\nprint(joined @ W_output)",
+    "output": "[[1. 2. 3. 4.]]"
+  },
+  "sinusoidal-position": {
+    "code": "from math import sin, cos\nposition, d_model = 1, 4\nencoding = []\nfor i in range(d_model // 2):\n    angle = position / 10000**(2*i/d_model)\n    encoding.extend([sin(angle), cos(angle)])\nprint([round(value, 6) for value in encoding])",
+    "output": "[0.841471, 0.540302, 0.01, 0.99995]"
+  },
+  "position-wise-ffn": {
+    "code": "import numpy as np\nx = np.array([[1., -2.]])\nW1, W2 = np.eye(2), np.eye(2)\nb1, b2 = np.zeros(2), np.zeros(2)\nhidden = np.maximum(0, x @ W1 + b1)\nprint(hidden @ W2 + b2)",
+    "output": "[[1. 0.]]"
+  },
+  "layer-normalization": {
+    "code": "import numpy as np\nx = np.array([[1., 2., 3.]])\ngamma, beta, epsilon = 1., 0., 1e-5\nmean = x.mean(axis=-1, keepdims=True)\nvariance = x.var(axis=-1, keepdims=True)\nnormalized = gamma * (x-mean) / np.sqrt(variance+epsilon) + beta\nprint(np.round(normalized, 6))",
+    "output": "[[-1.224736  0.        1.224736]]"
+  },
+  "masked-lm-loss": {
+    "code": "from math import log\ncorrect_token_probabilities = [0.8]  # только позиции, выбранные для MLM\nloss = -sum(log(p) for p in correct_token_probabilities)\nprint(round(loss, 6))",
+    "output": "0.223144"
+  },
+  "causal-lm": {
+    "code": "from math import log, prod\nconditional_probabilities = [0.5, 0.4, 0.2]\nprobability = prod(conditional_probabilities)\nloss = -sum(log(p) for p in conditional_probabilities)\nprint(round(probability, 6), round(loss, 6))\nassert abs(loss + log(probability)) < 1e-12",
+    "output": "0.04 3.218876"
+  },
+  "cosine-similarity": {
+    "code": "from math import sqrt\nu, v = [1, 2], [2, 1]\ndot = sum(a*b for a, b in zip(u, v))\nnorm = lambda x: sqrt(sum(a*a for a in x))\nsimilarity = dot / (norm(u)*norm(v))\nprint(round(similarity, 6))",
+    "output": "0.8"
+  }
+}

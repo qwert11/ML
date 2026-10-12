@@ -42,6 +42,41 @@ body {
 button,
 input { font: inherit; }
 
+a { color: var(--accent); }
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+}
+
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  z-index: 20;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface-bg);
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+}
+
+.book-nav {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem 0;
+}
+
+.book-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.book-nav a:hover { text-decoration: underline; }
+
 .site-header {
   padding: 1.25rem 1rem 0.75rem;
   border-bottom: 1px solid var(--card-border);
@@ -96,6 +131,110 @@ input { font: inherit; }
   margin: 0 auto;
   padding: 1rem;
 }
+
+/* Каталог книг */
+
+.library-main {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+}
+
+.library-intro {
+  max-width: 44rem;
+  margin: 0 0 1.5rem;
+  color: var(--muted);
+}
+
+.book-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.book-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 1.25rem;
+  color: var(--text);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  text-decoration: none;
+  box-shadow: 0 10px 30px rgb(15 23 42 / 0.05);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.book-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 14px 38px rgb(15 23 42 / 0.1);
+}
+
+.book-card:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.book-kicker {
+  margin: 0 0 0.45rem;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.book-card h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.25;
+}
+
+.book-authors {
+  margin: 0.45rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.book-summary { margin: 1rem 0; }
+
+.book-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: auto;
+}
+
+.book-meta span,
+.status-pill {
+  padding: 0.25rem 0.55rem;
+  color: var(--text);
+  background: var(--formula-bg);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.book-open {
+  margin: 1rem 0 0;
+  color: var(--accent);
+  font-weight: 750;
+}
+
+.source-notice {
+  max-width: 46rem;
+  margin: 1rem auto 0;
+  padding: 0.8rem 1rem;
+  color: var(--text);
+  background: var(--formula-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.resources a { word-break: break-word; }
 
 /* Поиск */
 
@@ -372,4 +511,5 @@ input { font: inherit; }
   .site-header h1 { font-size: 1.9rem; }
   .header-content > div { text-align: center; flex: 1; }
   .theme-toggle { margin-top: 0.15rem; }
+  .book-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

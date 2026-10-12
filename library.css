@@ -1,0 +1,77 @@
+.masthead { max-width: 72rem; margin: auto; padding: 1.2rem 2rem; display:flex; align-items:center; justify-content:space-between; gap:1rem; border-bottom:1px solid var(--card-border); }
+.masthead a { text-decoration:none; }
+.brand { color:var(--text); font-size:1.5rem; font-weight:800; letter-spacing:-.05em; }
+.brand span { color:var(--muted); font-size:.8rem; font-weight:400; letter-spacing:0; }
+.masthead nav { display:flex; align-items:center; gap:1.4rem; font-size:.9rem; }
+#theme-toggle { background:var(--card-bg); color:var(--text); border:1px solid var(--card-border); border-radius:50%; width:2.5rem; height:2.5rem; cursor:pointer; }
+#app.library-app { max-width:68rem; padding:1.5rem 2rem 4rem; }
+.page-intro { max-width:52rem; margin:1.5rem 0 2rem; }
+.page-intro h1 { font-size:clamp(1.8rem,4vw,2.8rem); line-height:1.17; letter-spacing:-.035em; margin:.6rem 0 1rem; }
+.eyebrow { color:var(--accent); text-transform:uppercase; font-size:.73rem; font-weight:750; letter-spacing:.1em; }
+.lead { color:var(--muted); font-size:1.08rem; max-width:44rem; }
+.study-paths { display:flex; gap:1rem; flex-wrap:wrap; }
+.primary-link,.secondary-link { display:inline-block; padding:.8rem 1rem; border-radius:9px; text-decoration:none; font-weight:650; border:1px solid var(--card-border); margin-bottom:1rem; }
+.primary-link { background:var(--accent); color:var(--bg); }
+.secondary-link { background:var(--card-bg); color:var(--text); }
+.learning-flow { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1.5rem; margin:1.5rem 0 3rem; color:var(--muted); font-size:.93rem; }
+.learning-flow p { padding-top:1rem; border-top:2px solid var(--card-border); }
+.breadcrumbs { display:flex; flex-wrap:wrap; gap:.5rem; color:var(--muted); font-size:.8rem; }
+.breadcrumbs a { text-decoration:none; }
+.book-grid { margin-top:1.5rem; }
+.book-card { box-shadow:none; padding:1.6rem; }
+.search-wrap { margin-top:2rem; }
+.search-wrap label { display:block; font-weight:650; margin-bottom:.5rem; font-size:.88rem; }
+.search-status { font-size:.8rem; color:var(--muted); }
+.formula-directory { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; align-items:start; }
+.directory-section { padding:1rem 1.2rem; border:1px solid var(--card-border); border-radius:10px; }
+.directory-section h2 { margin:0 0 .8rem; font-size:1rem; }
+.formula-entry { display:flex; flex-direction:column; gap:.25rem; padding:.8rem 0; text-decoration:none; border-top:1px solid var(--card-border); }
+.formula-entry strong { font-size:.91rem; }
+.formula-entry span { font-size:.74rem; color:var(--muted); }
+.chapter h2 { font-size:1.2rem; border-bottom:2px solid var(--accent); padding-bottom:.5rem; }
+.reading-entry { display:grid; grid-template-columns:5rem 1fr 1rem; gap:1rem; text-decoration:none; padding:1rem .5rem; border-bottom:1px solid var(--card-border); font-size:.94rem; }
+.reading-entry:hover { background:var(--card-bg); }
+.reading-page { color:var(--muted); font-size:.8rem; padding-top:.1rem; }
+.reading-context,.book-references { padding:1.2rem 1.4rem; border:1px solid var(--card-border); border-radius:10px; background:var(--card-bg); margin:1.3rem 0; }
+.reading-context h2,.book-references h2 { margin:0 0 .5rem; font-size:1.1rem; }
+.reading-context p { margin:0; }
+.reading-notice { padding:.8rem 1rem; border-left:3px solid var(--accent); background:var(--formula-bg); font-size:.85rem; }
+.reading-note,.reading-progress { color:var(--muted); font-size:.83rem; }
+.reader-nav { display:flex; gap:1rem; justify-content:space-between; padding:1rem 0; border-block:1px solid var(--card-border); font-size:.83rem; }
+.reader-nav a { max-width:48%; }
+.book-lesson { margin:2.5rem 0; scroll-margin-top:1rem; }
+.book-lesson .formula-card { background:var(--bg); }
+.lesson-index { display:flex; gap:.5rem 1rem; flex-wrap:wrap; font-size:.85rem; }
+.reference-link { display:block; margin-top:.7rem; font-size:.9rem; }
+.return-to-book { display:block; padding:1rem; background:var(--formula-bg); border-radius:8px; font-size:.9rem; }
+.wiki-callout { display:block; padding:.85rem 1rem; border-radius:8px; background:var(--formula-bg); text-decoration:none; font-weight:650; }
+.python-panel { margin:1.3rem 0; padding:1.1rem; border:1px solid var(--card-border); border-radius:10px; min-width:0; }
+.python-panel h4 { margin:0 0 .6rem; }
+.python-panel h5 { font-size:.85rem; margin-bottom:.5rem; }
+.code-note { color:var(--muted); font-size:.82rem; }
+.python-panel pre { margin:.8rem 0 0; padding:1rem; background:var(--card-bg); border-radius:6px; overflow:auto; max-width:100%; font-size:.82rem; line-height:1.65; tab-size:4; }
+.python-output { border-left:3px solid var(--accent); }
+.code-actions { display:flex; align-items:center; flex-wrap:wrap; gap:1rem; font-size:.83rem; }
+.code-actions button { background:var(--surface-bg); color:var(--accent); border:1px solid var(--card-border); border-radius:5px; padding:.4rem .7rem; cursor:pointer; }
+.library-footer { max-width:64rem; margin:auto; padding:1.5rem 2rem; border-top:1px solid var(--card-border); font-size:.78rem; color:var(--muted); }
+.formula-card { min-width:0; }
+.params,.worked-example-values { grid-template-columns:minmax(0,max-content) minmax(0,1fr); }
+.params dt,.worked-example-values dt { overflow-x:auto; max-width:100%; }
+a:focus-visible,button:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+[hidden] { display:none !important; }
+@media(max-width:640px){
+  .masthead { padding:1rem; gap:.5rem; }
+  .brand span { display:none; }
+  .masthead nav { gap:1rem; font-size:.85rem; }
+  #app.library-app { padding:1rem 1rem 3rem; }
+  .page-intro { margin:1rem 0 1.5rem; }
+  .formula-directory,.learning-flow { grid-template-columns:1fr; }
+  .learning-flow { gap:0; margin:1rem 0 2rem; }
+  .reading-entry { grid-template-columns:3.5rem 1fr 1rem; gap:.6rem; }
+  .reader-nav { flex-wrap:wrap; }
+  .params,.worked-example-values { display:block; }
+  .params dt,.worked-example-values dt { text-align:left; margin-top:.7rem; }
+  .params dd,.worked-example-values dd { margin:0; overflow-wrap:anywhere; }
+  .book-card { padding:1.2rem; }
+}
+@media(prefers-reduced-motion:reduce){* { scroll-behavior:auto !important; transition:none !important; }}

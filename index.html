@@ -1,116 +1,15 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ML Formula Wiki — шпаргалка по формулам машинного обучения</title>
-  <meta name="description" content="Шпаргалка по математическим формулам из книги Себастьяна Рашки «Python и машинное обучение»: формула, параметры, история, примеры применения.">
-
-  <script>
-    (() => {
-      const savedTheme = localStorage.getItem("theme");
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      document.documentElement.dataset.theme = savedTheme || (prefersDark ? "dark" : "light");
-    })();
-  </script>
-
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
-        integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="mobile-panel.css">
-
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"
-          integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script>
-  <script defer src="data/formulas.js"></script>
-  <script defer src="data/formulas-page-80.js"></script>
-  <script defer src="data/worked-examples.js"></script>
-  <script defer src="app.js"></script>
-</head>
-<body>
-  <nav id="mobile-top-panel" class="mobile-top-panel" aria-label="Быстрая навигация">
-    <button id="scroll-to-top" class="mobile-panel-button" type="button" aria-label="Перейти в начало страницы" title="В начало">
-      <span aria-hidden="true">↑</span>
-      <span>В начало</span>
-    </button>
-  </nav>
-
-  <header class="site-header">
-    <div class="header-content">
-      <div>
-        <h1>ML Formula Wiki</h1>
-        <p class="subtitle">Шпаргалка по формулам из книги С.&nbsp;Рашки «Python и машинное обучение», стр.&nbsp;61–100</p>
-      </div>
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Переключить цветовую тему" title="Переключить цветовую тему">
-        <span class="theme-icon" aria-hidden="true">🌙</span>
-        <span class="theme-label">Тёмная</span>
-      </button>
-    </div>
-  </header>
-
-  <main id="app">
-    <noscript>Для отображения формул требуется JavaScript.</noscript>
-  </main>
-
-  <footer class="site-footer">
-    <p>Источник: Себастьян Рашка, «Python и машинное обучение». Здесь только формулы и авторские описания.</p>
-  </footer>
-
-  <script>
-    (() => {
-      const toggle = document.getElementById("theme-toggle");
-      const icon = toggle.querySelector(".theme-icon");
-      const label = toggle.querySelector(".theme-label");
-
-      const refreshButton = () => {
-        const isDark = document.documentElement.dataset.theme === "dark";
-        icon.textContent = isDark ? "☀️" : "🌙";
-        label.textContent = isDark ? "Светлая" : "Тёмная";
-        toggle.setAttribute("aria-label", isDark ? "Включить светлую тему" : "Включить тёмную тему");
-        toggle.title = isDark ? "Включить светлую тему" : "Включить тёмную тему";
-      };
-
-      refreshButton();
-
-      toggle.addEventListener("click", () => {
-        const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-        document.documentElement.dataset.theme = nextTheme;
-        localStorage.setItem("theme", nextTheme);
-        refreshButton();
-      });
-    })();
-
-    (() => {
-      const panel = document.getElementById("mobile-top-panel");
-      const topButton = document.getElementById("scroll-to-top");
-      const mobileQuery = window.matchMedia("(max-width: 639px)");
-      let lastY = window.scrollY;
-
-      const hidePanel = () => panel.classList.remove("is-visible");
-      const showPanel = () => panel.classList.add("is-visible");
-
-      window.addEventListener("scroll", () => {
-        if (!mobileQuery.matches) {
-          hidePanel();
-          lastY = window.scrollY;
-          return;
-        }
-
-        const currentY = window.scrollY;
-        const delta = currentY - lastY;
-
-        if (currentY > 48 && delta < -4) showPanel();
-        if (delta > 4 || currentY <= 8) hidePanel();
-
-        lastY = currentY;
-      }, { passive: true });
-
-      topButton.addEventListener("click", () => {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        hidePanel();
-      });
-
-      mobileQuery.addEventListener?.("change", hidePanel);
-    })();
-  </script>
-</body>
-</html>
+<!doctype html>
+<html lang="ru"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Математика машинного обучения · ML</title><meta name="description" content="Читайте учебник по порядку или разбирайте формулу в общей Wiki.">
+<link rel="canonical" href="https://qwert11.github.io/ML/"><link rel="icon" href="data:,">
+<script>const ML_SITE=true;const ML_PAGE={"kind":"home"};try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light')}catch(e){}</script>
+<link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./library.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script>
+<script defer src="./data/catalog.js"></script><script defer src="./app.js"></script><script defer src="./site.js"></script>
+</head><body><a class="skip-link" href="#app">К содержимому</a>
+<header class="masthead"><a class="brand" href="./">ML<span> / учиться понимать</span></a><nav aria-label="Основная навигация"><a href="./Formula-Wiki/">Формулы</a><a href="./books/">Учебники</a><button id="theme-toggle" type="button" aria-label="Переключить тему">◐</button></nav></header>
+<main id="app" class="library-app"><h1>Математика машинного обучения</h1><p>Читайте учебник по порядку или разбирайте формулу в общей Wiki.</p><noscript><p>Для интерактивных разборов включите JavaScript.</p><ul><li><a href="./Formula-Wiki/">Справочник формул</a></li><li><a href="./books/">Учебники</a></li></ul></noscript></main>
+<footer class="library-footer">ML · Формулы, контекст и практика. Авторские объяснения и учебные примеры.</footer>
+</body></html>
