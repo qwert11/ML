@@ -202,6 +202,26 @@ function showOfficialIndex(root,bookId) {
   });
   root.append(list);
 }
+function miniDemo(example) {
+  const mini=example.miniDemo,demo=el('section','mini-demo');demo.id='mini';
+  demo.append(el('h3',null,'Мини-версия на числах'),el('p',null,mini.intro));
+  const scale=el('table','mini-scale'),head=el('tr');['','В книге','Здесь'].forEach(text=>head.append(el('th',null,text)));scale.append(head);
+  mini.scale.forEach(row=>{const tr=el('tr');row.forEach((text,i)=>tr.append(el(i?'td':'th',null,text)));scale.append(tr);});
+  const actions=el('div','code-actions'),copy=el('button',null,'Копировать мини-код');copy.type='button';
+  copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(mini.code);copy.textContent='Скопировано';}catch{copy.textContent='Выделите код вручную';}});
+  const download=link('Скачать .py',urlFor('examples/mini-'+example.id+'.py'));download.download='mini-'+example.id+'.py';actions.append(copy,download);
+  const pre=el('pre');pre.append(el('code',null,mini.code));
+  const output=el('pre','python-output');output.append(el('code',null,mini.output));
+  demo.append(scale,el('p','code-note','Python 3 + NumPy. Установка: python -m pip install numpy'),actions,pre,el('h4',null,'Результат запуска'),output,el('h4',null,'Как код превращается в числа'));
+  const steps=el('ol','mini-steps');
+  mini.steps.forEach(step=>{
+    const li=el('li');li.append(el('h5',null,step.title));
+    const code=el('pre','mini-code');code.append(el('code',null,step.code));li.append(code);
+    step.lines.forEach(line=>{const row=el('div','mini-line'),math=el('div','mini-math');tex(math,line.latex,true);row.append(math);if(line.comment)row.append(el('p','code-note',line.comment));li.append(row);});
+    if(step.note)li.append(el('p','mini-note',step.note));steps.append(li);
+  });
+  demo.append(steps);return demo;
+}
 function showOfficialExample(root,bookId,exampleId) {
   const book=bookById(bookId),example=officialById(exampleId);if(!book||!example||example.bookId!==bookId)return showNotFound(root);
   crumbs(root,[['Учебники',urlFor('books/')],[book.title,bookUrl(book.id)],['Официальный код',officialIndexUrl(book.id)],['Глава '+example.chapter]]);
@@ -217,7 +237,13 @@ function showOfficialExample(root,bookId,exampleId) {
   const actions=el('div','code-actions');
   const copy=el('button',null,'Копировать код');copy.type='button';copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(example.code);copy.textContent='Скопировано';}catch{copy.textContent='Выделите код вручную';}});
   const download=link('Скачать .py',urlFor('examples/packt-'+example.id+'.py'));download.download='packt-'+example.id+'.py';
-  actions.append(copy,download);const pre=el('pre');pre.append(el('code',null,example.code));panel.append(actions,pre);root.append(panel);
+  actions.append(copy,download);panel.append(actions);
+  if(example.miniDemo){
+    const demo=miniDemo(example),toggle=el('button','mini-toggle','▶ Разобрать на числах');toggle.type='button';toggle.setAttribute('aria-expanded','false');
+    const setOpen=open=>{demo.hidden=!open;toggle.textContent=open?'▼ Скрыть разбор':'▶ Разобрать на числах';toggle.setAttribute('aria-expanded',String(open));};
+    toggle.addEventListener('click',()=>setOpen(demo.hidden));actions.append(toggle);panel.append(demo);setOpen(location.hash==='#mini');
+  }
+  const pre=el('pre');pre.append(el('code',null,example.code));panel.append(pre);root.append(panel);
   const walkthrough=el('section','code-walkthrough');walkthrough.append(el('h2',null,'Разбираем по шагам'));
   const steps=el('ol');example.walkthrough.forEach(step=>steps.append(el('li',null,step)));walkthrough.append(steps);root.append(walkthrough);
   const related=el('section','related-formulas');related.append(el('h2',null,'Математическая основа в Formula Wiki'));

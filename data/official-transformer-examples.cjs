@@ -15,6 +15,7 @@ module.exports = [
     compatibility: 'Код книги использует отдельный пакет keras и простое разбиение строк по пробелам. В современном TensorFlow обычно импортируют tensorflow.keras; для реального проекта нужен токенизатор с обработкой неизвестных слов.',
     excerptNote: 'Сверено по фотографиям русского издания: стр. 32–33. В печатной книге model.fit использует 30 эпох и batch_size=32; в текущем официальном notebook — 15 эпох и batch_size=16. Ниже сохранены параметры печатной книги.',
     relatedFormulaIds: ['sigmoid', 'tanh-activation', 'mlp-cost'],
+    miniDemo: require('./mini-lstm-sst2.cjs'),
     code: `# Сначала выполнить в терминале или отдельной ячейке Jupyter:
 # wget https://dl.fbaipublicfiles.com/glue/data/SST-2.zip
 # unzip SST-2.zip

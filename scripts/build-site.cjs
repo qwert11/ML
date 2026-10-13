@@ -90,6 +90,16 @@ for (const example of officialExamples) {
   }
   const attribution = `# Фрагмент официального кода Packt: Mastering Transformers\n# MIT License, Copyright (c) 2021 Packt\n# Источник: ${example.sourceUrl}\n`;
   write(`examples/packt-${example.id}.py`, attribution + example.code + '\n');
+  if (example.miniDemo) {
+    const key = 'mini-' + example.id, code = example.miniDemo.code, cached = previousResults[key];
+    if (checkPython || !cached || cached.code !== code) {
+      const result = spawnSync('python', ['-X','utf8','-c',code], {encoding:'utf8', timeout:15000});
+      if (result.status !== 0) throw Error(`Python ${key}: ${result.stderr || result.error}`);
+      codeResults[key] = {code,output:result.stdout.trim()};
+    } else codeResults[key] = cached;
+    example.miniDemo.output = codeResults[key].output;
+    write(`examples/${key}.py`, code + '\n');
+  }
 }
 for (const book of compiledBooks) {
   book.officialExampleIds = officialExamples.filter(example => example.bookId === book.id).map(example => example.id);
