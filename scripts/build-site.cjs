@@ -91,13 +91,22 @@ for (const example of officialExamples) {
   const attribution = `# Фрагмент официального кода Packt: Mastering Transformers\n# MIT License, Copyright (c) 2021 Packt\n# Источник: ${example.sourceUrl}\n`;
   write(`examples/packt-${example.id}.py`, attribution + example.code + '\n');
   if (example.miniDemo) {
-    const key = 'mini-' + example.id, code = example.miniDemo.code, cached = previousResults[key];
-    if (checkPython || !cached || cached.code !== code) {
-      const result = spawnSync('python', ['-X','utf8','-c',code], {encoding:'utf8', timeout:15000});
+    // Мини-код — блоки одной программы: исполняем их по очереди в общем пространстве имён
+    // и сохраняем вывод каждого блока, чтобы показать его прямо под кодом блока.
+    const mini = example.miniDemo, key = 'mini-' + example.id, cached = previousResults[key];
+    for (const block of mini.blocks) for (const id of block.formulas || []) {
+      if (!formulas.has(canonical(id))) throw Error(`Unknown formula ${id} in ${key}`);
+    }
+    const code = mini.blocks.map(block => block.code).join('\n\n');
+    if (checkPython || !cached || cached.code !== code || !cached.blocks) {
+      const runner = 'import io,json,sys,contextlib\nns={}\nout=[]\nfor b in json.loads(sys.stdin.read()):\n    buf=io.StringIO()\n    with contextlib.redirect_stdout(buf): exec(b,ns)\n    out.append(buf.getvalue().rstrip())\nprint(json.dumps(out,ensure_ascii=False))';
+      const result = spawnSync('python', ['-X','utf8','-c',runner], {input:JSON.stringify(mini.blocks.map(block => block.code)),encoding:'utf8',timeout:15000});
       if (result.status !== 0) throw Error(`Python ${key}: ${result.stderr || result.error}`);
-      codeResults[key] = {code,output:result.stdout.trim()};
+      const blocks = JSON.parse(result.stdout);
+      codeResults[key] = {code,output:blocks.filter(Boolean).join('\n'),blocks};
     } else codeResults[key] = cached;
-    example.miniDemo.output = codeResults[key].output;
+    mini.code = code;
+    mini.blocks.forEach((block,index) => { block.output = codeResults[key].blocks[index]; });
     write(`examples/${key}.py`, code + '\n');
   }
 }

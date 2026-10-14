@@ -29,7 +29,7 @@
 .formula-entry strong { font-size:.91rem; }
 .formula-entry span { font-size:.74rem; color:var(--muted); }
 .chapter h2 { font-size:1.2rem; border-bottom:2px solid var(--accent); padding-bottom:.5rem; }
-.reading-entry { display:grid; grid-template-columns:5rem 1fr 1rem; gap:1rem; text-decoration:none; padding:1rem .5rem; border-bottom:1px solid var(--card-border); font-size:.94rem; }
+.reading-entry { display:grid; grid-template-columns:7rem 1fr 1rem; gap:1rem; text-decoration:none; padding:1rem .5rem; border-bottom:1px solid var(--card-border); font-size:.94rem; }
 .reading-entry:hover { background:var(--card-bg); }
 .reading-page { color:var(--muted); font-size:.8rem; padding-top:.1rem; }
 .reading-context,.book-references,.official-references { padding:1.2rem 1.4rem; border:1px solid var(--card-border); border-radius:10px; background:var(--card-bg); margin:1.3rem 0; }
@@ -81,15 +81,35 @@
 .mini-scale { border-collapse:collapse; font-size:.82rem; margin:.8rem 0; display:block; overflow-x:auto; max-width:100%; }
 .mini-scale th,.mini-scale td { padding:.35rem .7rem; border-bottom:1px solid var(--card-border); text-align:left; white-space:nowrap; }
 .mini-scale tr:first-child th { color:var(--muted); font-weight:600; }
-.mini-steps { padding-left:1.4rem; }
-.mini-steps > li { margin:1.4rem 0; padding-left:.3rem; min-width:0; }
-.mini-steps h5 { font-size:.95rem; margin:0 0 .4rem; }
-.mini-demo pre.mini-code { margin:.3rem 0 .6rem; padding:.45rem .7rem; font-size:.78rem; border-left:3px solid var(--accent); }
-.mini-line { margin:.3rem 0 .5rem; min-width:0; }
+.mini-toc { display:flex; flex-wrap:wrap; gap:.3rem .9rem; margin:1rem 0; padding:.8rem 1rem; border-radius:8px; background:var(--card-bg); font-size:.8rem; }
+.mini-blocks { list-style:none; padding:0; margin:0; }
+.mini-block { margin:1.2rem 0; padding:1rem 1.1rem; border:1px solid var(--card-border); border-radius:10px; background:var(--bg); min-width:0; scroll-margin-top:1rem; }
+.mini-block h4 { margin:0 0 .7rem; font-size:1rem; }
+.mini-part,.mini-calc { margin:.6rem 0 0; min-width:0; }
+.mini-label { display:block; font-size:.68rem; font-weight:750; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin-bottom:.2rem; }
+.mini-demo pre.mini-book { margin:0; padding:.45rem .7rem; font-size:.76rem; background:transparent; border:1px dashed var(--card-border); color:var(--muted); }
+.mini-demo pre.mini-code { margin:0; padding:.7rem .8rem; font-size:.8rem; border-left:3px solid var(--accent); }
+.mini-demo pre.python-output { margin:0; padding:.5rem .8rem; font-size:.78rem; }
+.mini-calc { padding-top:.6rem; border-top:1px solid var(--card-border); margin-top:.9rem; }
+.mini-formulas { font-size:.82rem; margin:.6rem 0 0; }
+.mini-line { margin:.3rem 0 .6rem; min-width:0; }
 .mini-math { overflow-x:auto; overflow-y:hidden; max-width:100%; }
 .mini-math .katex-display { margin:.3rem 0; text-align:left; }
 .mini-math .katex-display > .katex { text-align:left; }
 .mini-line .code-note { margin:.1rem 0 0; }
+.mini-all { margin-top:1rem; }
+.mini-all summary { cursor:pointer; font-weight:650; font-size:.88rem; }
+.official-strip { display:flex; flex-wrap:wrap; gap:.3rem .8rem; align-items:baseline; padding:.8rem 1rem; border-left:3px solid var(--accent); background:var(--formula-bg); font-size:.88rem; }
+.official-strip a { font-weight:650; }
+.code-entry { background:var(--formula-bg); }
+.code-entry .reading-page { color:var(--accent); font-weight:700; }
+.code-entry strong { display:block; font-weight:650; }
+.code-entry small { display:block; color:var(--muted); font-size:.78rem; margin-top:.2rem; }
+.cross-links { padding:1rem 1.3rem; border:1px solid var(--accent); border-radius:10px; margin:1.3rem 0; }
+.cross-links h2 { margin:0 0 .4rem; font-size:1.05rem; }
+.cross-link { margin:.45rem 0; font-size:.9rem; }
+.cross-link span { display:inline-block; margin-left:.5rem; padding:.05rem .45rem; border-radius:999px; background:var(--card-bg); color:var(--muted); font-size:.74rem; }
+.formula-ref .code-note { margin:.15rem 0 0; }
 .mini-note { margin:.6rem 0 0; padding:.6rem .8rem; border-radius:6px; background:var(--card-bg); font-size:.86rem; }
 .library-footer { max-width:64rem; margin:auto; padding:1.5rem 2rem; border-top:1px solid var(--card-border); font-size:.78rem; color:var(--muted); }
 .formula-card { min-width:0; }
@@ -106,7 +126,10 @@ a:focus-visible,button:focus-visible,summary:focus-visible { outline:2px solid v
   .formula-directory,.learning-flow { grid-template-columns:1fr; }
   .official-list { grid-template-columns:1fr; }
   .learning-flow { gap:0; margin:1rem 0 2rem; }
-  .reading-entry { grid-template-columns:3.5rem 1fr 1rem; gap:.6rem; }
+  .reading-entry { grid-template-columns:4.5rem 1fr 1rem; gap:.6rem; }
+  .mini-block { padding:.8rem; }
+  .mini-demo { padding:.8rem; }
+  .mini-math .katex { font-size:1em; }
   .reader-nav { flex-wrap:wrap; }
   .params,.worked-example-values { display:block; }
   .params dt,.worked-example-values dt { text-align:left; margin-top:.7rem; }

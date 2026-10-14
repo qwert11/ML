@@ -130,20 +130,29 @@ function showBook(root,id) {
   let last;try{last=localStorage.getItem('reading:'+book.id);}catch{}
   const start = book.unitIds.includes(last) ? last : book.unitIds[0];
   root.append(link(last && start===last ? 'Продолжить чтение →' : 'Начать чтение →',unitUrl(book.id,start),'primary-link'));
-  if(book.officialExampleIds.length) {
-    const official=el('section','official-promo');
-    official.append(el('p','eyebrow','Код непосредственно к книге'),el('h2',null,'11 официальных примеров Packt'),el('p',null,'Не наши демонстрации: реальные ноутбуки и скрипты CH01–CH11 из публичного репозитория книги. Для каждого показаны источник, зависимости, объяснение шагов и замечания о совместимости.'));
-    official.append(link('Открыть официальный код по главам →',officialIndexUrl(book.id),'primary-link'));
-    root.append(official);
+  const official=book.officialExampleIds.map(officialById);
+  if(official.length) {
+    const promo=el('p','official-strip');
+    promo.append(el('span',null,'В главах ниже рядом с темами стоит реальный код из репозитория книги (Packt, CH01–CH11). '),link('Все '+official.length+' примеров списком →',officialIndexUrl(book.id)));
+    root.append(promo);
   }
   const items=[],groups=[],container=el('div','chapter-list');
   const bookUnits=book.unitIds.map(unitId=>unitById(id,unitId));
-  for (const chapter of [...new Set(bookUnits.map(u=>u.chapter))]) {
+  const chapters=[...new Set([...bookUnits.map(u=>u.chapter),...official.map(e=>e.chapter)])].sort((a,b)=>a-b);
+  for (const chapter of chapters) {
     const section=el('section','chapter'); section.append(el('h2',null,'Глава '+chapter));
     for(const unit of bookUnits.filter(u=>u.chapter===chapter)) {
       const a=link('',unitUrl(id,unit.id),'reading-entry');a.dataset.searchItem='true';
       a.append(el('span','reading-page',unit.page ? 'Стр. '+unit.page : 'Тема'),el('span',null,unit.lessons.map(l=>l.name).join(' · ')),el('span','arrow','→'));
       section.append(a);items.push({node:a,text:'Глава '+chapter+' '+(unit.page||'')+' '+unit.title+' '+unit.lessons.map(l=>l.name).join(' ')});
+    }
+    for(const example of official.filter(e=>e.chapter===chapter)) {
+      const a=link('',officialUrl(id,example.id),'reading-entry code-entry');a.dataset.searchItem='true';
+      const text=el('span');text.append(el('strong',null,example.title));
+      const formulasUsed=example.relatedFormulaIds.map(fid=>CATALOG.formulas.find(f=>f.id===canonicalId(fid)).name);
+      text.append(el('small',null,(example.miniDemo ? 'Есть разбор на числах · ' : '')+'Формулы: '+formulasUsed.join(', ')));
+      a.append(el('span','reading-page','Код Packt'+(example.page ? ' · стр. '+example.page : '')),text,el('span','arrow','→'));
+      section.append(a);items.push({node:a,text:'Глава '+chapter+' код packt '+(example.page||'')+' '+example.title+' '+example.purpose+' '+formulasUsed.join(' ')});
     }
     groups.push(section);container.append(section);
   }
@@ -165,6 +174,8 @@ function showLesson(root,bookId,unitId) {
   const progress=el('p','reading-progress','Шаг '+position+' из '+book.unitIds.length);root.append(progress,readerNav(book,unit));
   if(book.notice)root.append(el('p','reading-notice',book.notice));
   const context=el('aside','reading-context');context.append(el('h2',null,'Где мы находимся в книге'),el('p',null,unit.context));root.append(context);
+  const code=examplesForUnit(unit);
+  if(code.length)root.append(crossLinks('Официальный код Packt по теме',code.map(({example,reason})=>['Глава '+example.chapter+(example.page ? ', стр. '+example.page : '')+' · '+example.title+' →',officialUrl(bookId,example.id),reason])));
   const toc=el('nav','lesson-index');toc.setAttribute('aria-label','Разборы на этой странице');
   unit.lessons.forEach(lesson=>toc.append(link(lesson.name,'#lesson-'+lesson.id)));root.append(toc);
   unit.lessons.forEach((lesson,index)=>{
@@ -207,20 +218,49 @@ function miniDemo(example) {
   demo.append(el('h3',null,'Мини-версия на числах'),el('p',null,mini.intro));
   const scale=el('table','mini-scale'),head=el('tr');['','В книге','Здесь'].forEach(text=>head.append(el('th',null,text)));scale.append(head);
   mini.scale.forEach(row=>{const tr=el('tr');row.forEach((text,i)=>tr.append(el(i?'td':'th',null,text)));scale.append(tr);});
-  const actions=el('div','code-actions'),copy=el('button',null,'Копировать мини-код');copy.type='button';
+  const actions=el('div','code-actions'),copy=el('button',null,'Копировать весь мини-код');copy.type='button';
   copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(mini.code);copy.textContent='Скопировано';}catch{copy.textContent='Выделите код вручную';}});
-  const download=link('Скачать .py',urlFor('examples/mini-'+example.id+'.py'));download.download='mini-'+example.id+'.py';actions.append(copy,download);
-  const pre=el('pre');pre.append(el('code',null,mini.code));
-  const output=el('pre','python-output');output.append(el('code',null,mini.output));
-  demo.append(scale,el('p','code-note','Python 3 + NumPy. Установка: python -m pip install numpy'),actions,pre,el('h4',null,'Результат запуска'),output,el('h4',null,'Как код превращается в числа'));
-  const steps=el('ol','mini-steps');
-  mini.steps.forEach(step=>{
-    const li=el('li');li.append(el('h5',null,step.title));
-    const code=el('pre','mini-code');code.append(el('code',null,step.code));li.append(code);
-    step.lines.forEach(line=>{const row=el('div','mini-line'),math=el('div','mini-math');tex(math,line.latex,true);row.append(math);if(line.comment)row.append(el('p','code-note',line.comment));li.append(row);});
-    if(step.note)li.append(el('p','mini-note',step.note));steps.append(li);
+  const download=link('Скачать .py',urlFor('examples/mini-'+example.id+'.py'));download.download='mini-'+example.id+'.py';actions.append(copy,download,el('span','code-note','Python 3 + NumPy · pip install numpy'));
+  demo.append(scale,actions,el('p','code-note',mini.rounding));
+  const toc=el('nav','mini-toc');toc.setAttribute('aria-label','Шаги мини-версии');
+  const steps=el('ol','mini-blocks');
+  mini.blocks.forEach((block,index)=>{
+    const id='mini-'+(index+1),li=el('li','mini-block');li.id=id;
+    toc.append(link((index+1)+'. '+block.title,'#'+id));
+    li.append(el('h4',null,(index+1)+'. '+block.title));
+    const part=(label,text,className)=>{const wrap=el('div','mini-part');wrap.append(el('span','mini-label',label));const pre=el('pre',className);pre.append(el('code',null,text));wrap.append(pre);return wrap;};
+    li.append(part('В книге',block.book,'mini-book'),part('Мини-код',block.code,'mini-code'));
+    if(block.output)li.append(part('Вывод',block.output,'python-output'));
+    const calc=el('div','mini-calc');calc.append(el('span','mini-label','Как считается'));
+    block.math.forEach(line=>{const row=el('div','mini-line'),math=el('div','mini-math');tex(math,line.latex,true);row.append(math);if(line.comment)row.append(el('p','code-note',line.comment));calc.append(row);});
+    if(block.note)calc.append(el('p','mini-note',block.note));
+    if(block.formulas){const refs=el('p','mini-formulas','Формула подробно: ');block.formulas.forEach((fid,i)=>{const f=CATALOG.formulas.find(item=>item.id===canonicalId(fid));if(i)refs.append(' · ');refs.append(link(f.name,wikiUrl(fid)));});calc.append(refs);}
+    li.append(calc);steps.append(li);
   });
-  demo.append(steps);return demo;
+  demo.append(toc,steps);
+  const all=el('details','mini-all');all.append(el('summary',null,'Весь мини-код одним файлом'));const pre=el('pre');pre.append(el('code',null,mini.code));all.append(pre);demo.append(all);
+  return demo;
+}
+// Темы конспекта, связанные с примером: та же глава или общая формула.
+function unitsForExample(example) {
+  const ids=new Set(example.relatedFormulaIds.map(canonicalId));
+  return CATALOG.units.filter(unit=>unit.bookId===example.bookId).map(unit=>{
+    const shared=unit.lessons.filter(lesson=>ids.has(lesson.formulaId)).map(lesson=>lesson.name);
+    return {unit,reason:unit.chapter===example.chapter ? 'та же глава' : shared.length ? 'та же формула: '+shared.join(', ') : ''};
+  }).filter(item=>item.reason);
+}
+// Обратная связь: официальный код к теме конспекта.
+function examplesForUnit(unit) {
+  return CATALOG.officialExamples.filter(example=>example.bookId===unit.bookId).map(example=>{
+    const ids=example.relatedFormulaIds.map(canonicalId);
+    const shared=unit.lessons.filter(lesson=>ids.includes(lesson.formulaId)).map(lesson=>lesson.name);
+    return {example,reason:example.chapter===unit.chapter ? 'код этой главы' : shared.length ? 'использует: '+shared.join(', ') : ''};
+  }).filter(item=>item.reason);
+}
+function crossLinks(title,items) {
+  const section=el('section','cross-links');section.append(el('h2',null,title));
+  items.forEach(([label,href,reason])=>{const row=el('p','cross-link');row.append(link(label,href));if(reason)row.append(el('span',null,reason));section.append(row);});
+  return section;
 }
 function showOfficialExample(root,bookId,exampleId) {
   const book=bookById(bookId),example=officialById(exampleId);if(!book||!example||example.bookId!==bookId)return showNotFound(root);
@@ -241,13 +281,21 @@ function showOfficialExample(root,bookId,exampleId) {
   if(example.miniDemo){
     const demo=miniDemo(example),toggle=el('button','mini-toggle','▶ Разобрать на числах');toggle.type='button';toggle.setAttribute('aria-expanded','false');
     const setOpen=open=>{demo.hidden=!open;toggle.textContent=open?'▼ Скрыть разбор':'▶ Разобрать на числах';toggle.setAttribute('aria-expanded',String(open));};
-    toggle.addEventListener('click',()=>setOpen(demo.hidden));actions.append(toggle);panel.append(demo);setOpen(location.hash==='#mini');
+    toggle.addEventListener('click',()=>setOpen(demo.hidden));actions.append(toggle);panel.append(demo);setOpen(/^#mini(-[0-9]+)?$/.test(location.hash));
   }
   const pre=el('pre');pre.append(el('code',null,example.code));panel.append(pre);root.append(panel);
   const walkthrough=el('section','code-walkthrough');walkthrough.append(el('h2',null,'Разбираем по шагам'));
   const steps=el('ol');example.walkthrough.forEach(step=>steps.append(el('li',null,step)));walkthrough.append(steps);root.append(walkthrough);
   const related=el('section','related-formulas');related.append(el('h2',null,'Математическая основа в Formula Wiki'));
-  example.relatedFormulaIds.forEach(id=>{const formula=CATALOG.formulas.find(item=>item.id===canonicalId(id));related.append(link(formula.name+' →',wikiUrl(id),'reference-link'));});root.append(related,officialNav(book,example));
+  example.relatedFormulaIds.forEach(id=>{
+    const formula=CATALOG.formulas.find(item=>item.id===canonicalId(id)),row=el('div','formula-ref');
+    row.append(link(formula.name+' →',wikiUrl(id),'reference-link'));
+    if(formula.references.length){const where=el('p','code-note','В учебниках: ');formula.references.forEach((ref,i)=>{if(i)where.append(' · ');where.append(link(bookById(ref.bookId).authors.split(' · ')[0]+', '+referenceLabel(ref).toLowerCase(),unitUrl(ref.bookId,ref.unitId)+'#lesson-'+ref.lessonId));});row.append(where);}
+    related.append(row);
+  });
+  const units=unitsForExample(example);
+  if(units.length)root.append(crossLinks('Где это в конспекте книги',units.map(({unit,reason})=>[readingLabel(unit)+': '+unit.lessons.map(l=>l.name).join(' · ')+' →',unitUrl(unit.bookId,unit.id),reason])));
+  root.append(related,officialNav(book,example));
 }
 function showNotFound(root){heading(root,'404','Страница не найдена','Откройте справочник формул или оглавление нужного учебника.');root.append(link('Справочник формул →',urlFor('Formula-Wiki/'),'primary-link'));showBooks(root,false);}
 document.addEventListener('DOMContentLoaded',()=>{
