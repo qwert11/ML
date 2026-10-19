@@ -213,9 +213,8 @@ function showOfficialIndex(root,bookId) {
   });
   root.append(list);
 }
-// Мини-версия по шагам: прокрутка страницы двигает выполнение программы.
+// Мини-версия по шагам: шаги — кнопками, клавишами и ползунком; страница прокручивается мимо как обычно.
 // Шаги записаны при сборке настоящим запуском Python (scripts/trace-python.py).
-const TRACE_STEP_PX=100;
 function pyLine(text) {
   const span=el('span','trace-src'),re=/(#.*$)|(f?"[^"]*"|'[^']*')|\b(import|def|return|for|in)\b|(\b\d+(?:\.\d+)?(?:e-?\d+)?\b)/g;
   let last=0,m;
@@ -234,7 +233,6 @@ function traceDemo(example) {
   mini.scale.forEach(row=>{const tr=el('tr');row.forEach((text,i)=>tr.append(el(i?'td':'th',null,text)));scale.append(tr);});
   diff.append(el('summary',null,'Чем отличается от книги'),scale);
   const track=el('div','trace-track'),stage=el('div','trace-stage');
-  track.style.setProperty('--trace-span',(mini.steps-1)*TRACE_STEP_PX+'px');
   stage.append(el('p','trace-loading','Загружаю шаги…'));track.append(stage);
   const all=el('details','trace-all'),pre=el('pre'),output=el('pre','python-output');
   pre.append(el('code',null,mini.code));output.append(el('code',null,CATALOG.python[key].output));
@@ -315,10 +313,9 @@ function traceViewer(stage,track,code,trace,key) {
     if(m.cap)inner.append(el('p','trace-cap',m.cap));
     if(m.w){const refs=el('p','trace-cap','Подробно: ');m.w.forEach((id,i)=>{if(i)refs.append(' · ');refs.append(link(CATALOG.formulas.find(f=>f.id===canonicalId(id)).name+' →',wikiUrl(id)));});inner.append(refs);}
     mathBody.append(inner);
-    // Длинные формулы ужимаются по ширине панели; по высоте — только там, где панель не прокручивается (тач).
+    // Длинные формулы ужимаются по ширине панели, по высоте панель прокручивается.
     // На телефоне — не мельче 75 %, остаток листается пальцем вбок.
-    const fitHeight=getComputedStyle(mathBody).overflowY==='hidden';
-    for(let pass=0;pass<3;pass++){const k=Math.min(1,mathBody.clientWidth/inner.scrollWidth,fitHeight ? mathBody.clientHeight/inner.scrollHeight : 1);
+    for(let pass=0;pass<3;pass++){const k=Math.min(1,mathBody.clientWidth/inner.scrollWidth);
       if(k>=.995)break;inner.style.fontSize=Math.max(narrow.matches ? .75 : .55,(parseFloat(inner.style.fontSize)||100)/100*k*.98)*100+'%';}
   }
   const rows=src.map((text,i)=>{const row=el('div','trace-line');row.append(el('span','trace-num',String(i+1)),pyLine(text),el('span','trace-val'));codeBody.append(row);return row;});
@@ -367,20 +364,8 @@ function traceViewer(stage,track,code,trace,key) {
     buttons.out.disabled=!depth[k];
     where.textContent='книга: '+(book[s.l[0]-1]||'—')+(s.f ? '  ·  внутри '+s.f+'(), вызов из строки '+caller : '');
   }
-  // Колесо не застревает в панелях. Над кодом оно всегда листает шаги: код и так следит за строкой,
-  // а оглядеться можно полосой прокрутки. Остальные панели сначала листаются сами, а упёршись в край,
-  // сразу отдают колесо странице — без паузы, которую браузер делает между вложенными прокрутками.
-  grid.addEventListener('wheel',e=>{
-    if(e.ctrlKey||Math.abs(e.deltaX)>Math.abs(e.deltaY))return;
-    const dy=e.deltaY*(e.deltaMode===1 ? 40 : e.deltaMode===2 ? innerHeight : 1),pane=e.target.closest('.trace-body');
-    if(pane&&pane!==codeBody&&(dy>0 ? pane.scrollHeight-pane.clientHeight-pane.scrollTop : pane.scrollTop)>1)return;
-    e.preventDefault();scrollBy({top:dy,behavior:'instant'});
-  },{passive:false});
-  const fromScroll=()=>Math.min(N-1,Math.max(0,Math.round(-track.getBoundingClientRect().top/TRACE_STEP_PX)));
-  const go=k=>{k=Math.min(N-1,Math.max(0,k));scrollTo({top:scrollY+track.getBoundingClientRect().top+k*TRACE_STEP_PX,behavior:'instant'});render(k);};
-  let pending=false;
-  const onScroll=()=>{if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;render(fromScroll());});};
-  addEventListener('scroll',onScroll,{passive:true});addEventListener('resize',()=>{current=-1;onScroll();});
+  const go=k=>render(Math.min(N-1,Math.max(0,k)));
+  addEventListener('resize',()=>{const k=current;current=-1;render(k);});
   range.addEventListener('input',()=>go(Number(range.value)));
   // Клавиши отладчика работают, пока экран разбора занимает середину окна.
   // F5 перехватывается и на последнем шаге, иначе браузер перезагрузит страницу.
@@ -394,7 +379,7 @@ function traceViewer(stage,track,code,trace,key) {
     if(!name)return;
     e.preventDefault();if(!buttons[name].disabled)go(target[name](current));
   });
-  render(fromScroll());
+  render(0);
 }
 // Темы конспекта, связанные с примером: та же глава или общая формула.
 function unitsForExample(example) {

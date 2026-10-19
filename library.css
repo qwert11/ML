@@ -74,7 +74,7 @@
 .code-actions { display:flex; align-items:center; flex-wrap:wrap; gap:1rem; font-size:.83rem; }
 .code-actions button { background:var(--surface-bg); color:var(--accent); border:1px solid var(--card-border); border-radius:5px; padding:.4rem .7rem; cursor:pointer; }
 .code-actions .mini-toggle { padding:.4rem .7rem; border-radius:5px; background:var(--accent); color:var(--bg); font-weight:650; text-decoration:none; }
-/* Разбор по шагам: липкий экран «код | переменные | вывод», прокрутка страницы = шаги */
+/* Разбор по шагам: экран «код | формулы | вывод | переменные», шаги — кнопками, клавишами и ползунком */
 .trace { --mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace; --tk-str:#b45309; --tk-num:#0f766e; --tk-kw:#7c3aed; --dbg-go:#15803d; --bp:#e51400;
   width:min(calc(100vw - 2rem),96rem); margin:2.5rem 0 2rem calc(50% - min(calc(50vw - 1rem),48rem)); scroll-margin-top:1rem; }
 :root[data-theme="dark"] .trace { --tk-str:#fbbf24; --tk-num:#5eead4; --tk-kw:#c4b5fd; --dbg-go:#4ade80; --bp:#f14c4c; }
@@ -85,9 +85,9 @@
 .trace-scale { border-collapse:collapse; font-size:.82rem; margin:.5rem 0; display:block; overflow-x:auto; max-width:100%; }
 .trace-scale th,.trace-scale td { padding:.3rem .7rem; border-bottom:1px solid var(--card-border); text-align:left; white-space:nowrap; }
 .trace-scale tr:first-child th { color:var(--muted); font-weight:600; }
-.trace-track { position:relative; height:calc(100vh + var(--trace-span,0px)); margin-top:1rem; }
-.trace-stage { position:sticky; top:0; height:100vh; display:flex; flex-direction:column; gap:.6rem; padding:.7rem 0; background:var(--bg); }
-@supports (height:100dvh) { .trace-track { height:calc(100dvh + var(--trace-span,0px)); } .trace-stage { height:100dvh; } }
+.trace-track { margin-top:1rem; }
+.trace-stage { height:100vh; display:flex; flex-direction:column; gap:.6rem; padding:.7rem 0; }
+@supports (height:100dvh) { .trace-stage { height:100dvh; } }
 .trace-loading { margin:auto; color:var(--muted); }
 .trace-bar { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .7rem; padding:.5rem .7rem; border:1px solid var(--card-border); border-radius:10px; background:var(--surface-bg); font-size:.83rem; }
 .dbg-tools { display:flex; flex-wrap:wrap; gap:.3rem; }
@@ -106,10 +106,8 @@
 .trace-code { grid-area:code; } .trace-math { grid-area:math; } .trace-log { grid-area:log; } .trace-vars { grid-area:vars; }
 .trace-box { display:flex; flex-direction:column; min-height:0; border:1px solid var(--card-border); border-radius:10px; background:var(--card-bg); }
 .trace-label { margin:0; padding:.45rem .8rem .35rem; border-bottom:1px solid var(--card-border); color:var(--muted); font-size:.68rem; font-weight:750; letter-spacing:.07em; text-transform:uppercase; }
-/* У панелей своя полоса прокрутки. Кто получает колесо — решает site.js: страница не должна застревать в панели. */
-.trace-body { position:relative; flex:1; min-height:0; overflow:auto; overscroll-behavior-y:contain; scrollbar-width:thin; scrollbar-color:var(--muted) transparent; padding:.45rem 0; font-family:var(--mono); font-size:.8rem; line-height:1.6; }
-/* На тач-экране свайп по панелям листает шаги, поэтому панели там не прокручиваются */
-@media(pointer:coarse){ .trace-body { overflow:hidden; overscroll-behavior-y:auto; } }
+/* Каждая панель листается колесом сама; долистав до края, колесо уходит странице */
+.trace-body { position:relative; flex:1; min-height:0; overflow:auto; scrollbar-width:thin; scrollbar-color:var(--muted) transparent; padding:.45rem 0; font-family:var(--mono); font-size:.8rem; line-height:1.6; }
 .trace-line { display:flex; min-height:1.6em; padding-right:.7rem; white-space:pre; }
 .trace-num { flex:none; width:2.8rem; padding-right:.8rem; text-align:right; color:var(--muted); opacity:.65; user-select:none; }
 .trace-num.can-bp { position:relative; cursor:pointer; }
@@ -182,7 +180,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible { outline:2px solid v
   .reading-entry { grid-template-columns:4.5rem 1fr 1rem; gap:.6rem; }
   .trace { width:auto; margin-left:0; }
   .trace-grid { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,.95fr) minmax(0,1.1fr) minmax(0,.65fr) minmax(0,.4fr); grid-template-areas:"code" "math" "vars" "log"; gap:.4rem; }
-  .trace-math .trace-body { font-size:.78rem; overflow-x:auto; overflow-y:hidden; }
+  .trace-math .trace-body { font-size:.78rem; }
   .trace-eq.is-todo,.trace-eq.is-done,.trace-cap { display:none; }
   .trace-bar { padding:.4rem .5rem; }
   .trace-counter { min-width:0; }
