@@ -303,13 +303,30 @@ function traceViewer(stage,track,code,trace,key) {
   const [codeBox,codeBody]=box('Код · подсвечена только что выполненная строка · клик по номеру — точка останова','trace-code');
   const [varsBox,varsBody]=box('Переменные после этой строки','trace-vars');
   const [logBox,logBody]=box('Вывод программы (print)','trace-log');
+  const [mathBox,mathBody]=box('Формулы сети · числа этого шага, 6 знаков — пересчёт сойдётся','trace-math');
+  // Система уравнений текущей части сети: подсвечено уравнение этой строки, ниже — подстановка.
+  const narrow=matchMedia('(max-width:640px)');
+  function renderMath(m) {
+    mathBody.replaceChildren();
+    if(!m){mathBody.append(el('p','trace-empty','В этой строке готовятся данные — формул сети здесь нет.'));return;}
+    const inner=el('div','trace-math-inner');inner.append(el('p','trace-math-title',m.title));
+    m.rows.forEach(row=>{const eq=el('div','trace-eq is-'+row.s);tex(eq,row.t,true);inner.append(eq);});
+    if(m.sub){const sub=el('div','trace-subst');tex(sub,m.sub,true);inner.append(sub);}
+    if(m.cap)inner.append(el('p','trace-cap',m.cap));
+    if(m.w){const refs=el('p','trace-cap','Подробно: ');m.w.forEach((id,i)=>{if(i)refs.append(' · ');refs.append(link(CATALOG.formulas.find(f=>f.id===canonicalId(id)).name+' →',wikiUrl(id)));});inner.append(refs);}
+    mathBody.append(inner);
+    // Длинные формулы ужимаются до размера панели: панели не прокручиваются, колесо крутит шаги.
+    // На телефоне — не мельче 75 %, остаток листается пальцем вбок.
+    for(let pass=0;pass<3;pass++){const k=Math.min(1,mathBody.clientWidth/inner.scrollWidth,mathBody.clientHeight/inner.scrollHeight);
+      if(k>=.995)break;inner.style.fontSize=Math.max(narrow.matches ? .75 : .55,(parseFloat(inner.style.fontSize)||100)/100*k*.98)*100+'%';}
+  }
   const rows=src.map((text,i)=>{const row=el('div','trace-line');row.append(el('span','trace-num',String(i+1)),pyLine(text),el('span','trace-val'));codeBody.append(row);return row;});
   const paintBps=()=>rows.forEach((row,i)=>row.firstChild.classList.toggle('is-bp',bps.has(i+1)));
   rows.forEach((row,i)=>{const at=stopAt.get(i+1),num=row.firstChild;if(!at)return;
     num.classList.add('can-bp');num.title='Точка останова: F5 / «Продолжить» остановится здесь';
     num.addEventListener('click',()=>{bps.has(at)?bps.delete(at):bps.add(at);try{localStorage.setItem(bpKey,JSON.stringify([...bps]));}catch{}paintBps();});});
   paintBps();
-  const grid=el('div','trace-grid');grid.append(codeBox,varsBox,logBox);
+  const grid=el('div','trace-grid');grid.append(codeBox,mathBox,logBox,varsBox);
   stage.replaceChildren(bar,grid);
   const reveal=(pane,node,center)=>{if(!node)return;const top=node.offsetTop,bottom=top+node.offsetHeight;
     if(center)pane.scrollTop=top-(pane.clientHeight-node.offsetHeight)/2;
@@ -338,6 +355,7 @@ function traceViewer(stage,track,code,trace,key) {
     varsBody.replaceChildren();
     if(s.f){group('внутри '+s.f+'()',s.v,s.c);group('глобальные',globalsAt[k],[]);}else group('',s.v,s.c);
     reveal(varsBody,varsBody.querySelector('.is-changed'));
+    renderMath(s.m);
     const before=k?steps[k-1].o:0;logBody.replaceChildren();
     if(!s.o)logBody.append(el('p','trace-empty','пока ничего не напечатано'));
     out.slice(0,s.o).forEach((line,i)=>logBody.append(el('div','trace-out'+(i>=before?' is-new':''),line||' ')));

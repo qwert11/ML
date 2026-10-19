@@ -1,0 +1,190 @@
+// Формулы сети к шагам мини-программы (только сборка, в браузер уходит готовый LaTeX).
+// На каждом шаге: система уравнений текущей части сети, подсвечено уравнение этой строки,
+// под ней — подстановка чисел. Числа с 6 знаками, и каждое показанное число дальше
+// используется уже округлённым: пересчёт по экрану на калькуляторе даёт те же цифры.
+// Итог каждой подстановки сверяется с программой до 4 знаков, иначе сборка падает.
+
+const decimals = x => x === 0 ? 6 : Math.max(6, 5 - Math.floor(Math.log10(Math.abs(x))));
+const R = x => { const v = Number(x.toFixed(decimals(x))); return v === 0 ? 0 : v; };
+const N = x => { const v = R(x); return v.toFixed(decimals(v)).replace(/\.?0+$/, ''); };
+const M = x => R(x) < 0 ? `(${N(x)})` : N(x);
+const py4 = x => { const v = Number(x.toFixed(4)); return Number.isInteger(v) ? v.toFixed(1) : String(v === 0 ? 0 : v); };
+const pair = v => `(${N(v[0])},\\ ${N(v[1])})`;
+
+const GATES = [['i', 'i', '\\sigma'], ['f', 'f', '\\sigma'], ['c_hat', '\\tilde c', '\\tanh'], ['o', 'o', '\\sigma']];
+const LSTM = [
+  ['x', 'x_t = E[w_t]'],
+  ...GATES.map(([key, sym, fn]) => [key, `${sym}_t = ${fn}(W_${sym === '\\tilde c' ? 'c' : sym} x_t + U_${sym === '\\tilde c' ? 'c' : sym} h_{t-1} + b_${sym === '\\tilde c' ? 'c' : sym})`]),
+  ['c', 'c_t = f_t \\odot c_{t-1} + i_t \\odot \\tilde c_t'],
+  ['h', 'h_t = o_t \\odot \\tanh(c_t)']
+];
+const OUT = [
+  ['p', 'p_k = \\sigma(w\\,h^{(k)} + b)'],
+  ['L', 'L = -\\frac1N\\sum_k \\big[y_k \\ln p_k + (1-y_k)\\ln(1-p_k)\\big]']
+];
+const TRAIN = [
+  ['g_w', 'g_w = \\frac{\\partial L}{\\partial w} = \\frac1N\\sum_k (p_k - y_k)\\,h^{(k)}'],
+  ['g_b', 'g_b = \\frac{\\partial L}{\\partial b} = \\frac1N\\sum_k (p_k - y_k)'],
+  ['v_w', 'v_w \\leftarrow \\rho\\,v_w + (1-\\rho)\\,g_w^2'],
+  ['v_b', 'v_b \\leftarrow \\rho\\,v_b + (1-\\rho)\\,g_b^2'],
+  ['w', 'w \\leftarrow w - \\eta\\,\\frac{g_w}{\\sqrt{v_w} + \\varepsilon}'],
+  ['b', 'b \\leftarrow b - \\eta\\,\\frac{g_b}{\\sqrt{v_b} + \\varepsilon}'],
+  ...OUT
+];
+const table = (cols, rows) => `\\begin{array}{r|${'r'.repeat(cols.length)}} & ${cols.join(' & ')}\\\\ \\hline ${rows.map(([name, vals]) => `${name} & ${vals.map(N).join(' & ')}`).join('\\\\')}\\end{array}`;
+const GATE_COLS = ['i', 'f', '\\tilde c', 'o'];
+const sigma = (z, val) => `\\sigma(${N(z)}) = \\frac{1}{1+e^{${N(-z)}}} = \\frac{1}{1+${N(Math.exp(-z))}} = ${N(val)}`;
+const aligned = rows => `\\begin{aligned}${rows.join('\\\\')}\\end{aligned}`;
+
+module.exports = function addMath(steps, code) {
+  const src = code.split('\n');
+  let G = {}, review = 0, sentence = '', t = 0, epoch = 0, cell = {};
+  const S = { H: [] };       // показанные значения: из них считаются следующие формулы
+  let train = {}, out = {};  // значения уже посчитанных строк текущей системы
+  const check = (what, actual, computed) => {
+    if (py4(actual) !== py4(computed)) throw Error(`Формула ${what}: по показанным числам ${computed}, в программе ${actual}`);
+    return R(computed);
+  };
+  const system = (rows, vals, cur) => rows.map(([key, tex]) => ({ t: tex + (vals[key] || ''), s: cur.includes(key) ? 'cur' : vals[key] ? 'done' : 'todo' }));
+  const lstmTitle = () => `LSTM-ячейка · отзыв ${review} «${sentence}»` + (t ? ` · t = ${t}, слово «${cell.word}»` : '');
+  const lstm = (cur, extra) => ({ title: lstmTitle(), rows: system(LSTM, cell.vals || {}, cur), ...extra });
+  const trainOrOut = () => epoch ? [TRAIN, train, `Обучение · эпоха ${epoch}`] : [OUT, out, 'Выход сети и ошибка'];
+
+  function math(line, s, v, g) {
+    const at = prefix => line.startsWith(prefix);
+    if (at('E = ')) return { title: 'Embedding: слово → вектор', rows: system([LSTM[0]], {}, ['x']),
+      sub: `E = ${table(['x_{t,0}', 'x_{t,1}'], g.E.map((row, k) => [`\\text{${g.words[k]}}`, row]))}`,
+      cap: 'Обучаемая таблица: строка на слово. В книге в строке 32 числа, здесь 2.' };
+    if (at('W = ')) return { title: 'LSTM-ячейка: параметры', rows: system(LSTM, {}, ['i', 'f', 'c_hat', 'o']),
+      sub: `W = ${table(GATE_COLS, [['x_{t,0}', g.W[0]], ['x_{t,1}', g.W[1]]])}`, cap: 'Веса от входа x_t: столбец на вентиль.' };
+    if (at('U = ')) return { title: 'LSTM-ячейка: параметры', rows: system(LSTM, {}, ['i', 'f', 'c_hat', 'o']),
+      sub: `U = ${table(GATE_COLS, [['h_{t-1}', g.U]])}`, cap: 'Веса от выхода прошлого шага h_{t−1}.' };
+    if (at('b = ')) return { title: 'LSTM-ячейка: параметры', rows: system(LSTM, {}, ['i', 'f', 'c_hat', 'o']),
+      sub: `b = ${table(GATE_COLS, [['1', g.b]])}`, cap: 'Смещения. У f смещение 1 — так Keras делает по умолчанию (unit_forget_bias).' };
+
+    if (at('for seq')) {
+      if (s.x) return null;
+      review++; t = 0; cell = {}; sentence = g.sentences[review - 1];
+      return lstm([], { cap: 'Новый отзыв: его слова по очереди пройдут через одну и ту же ячейку.' });
+    }
+    if (at('h, c = 0.0')) { S.h = 0; S.c = 0; return lstm([], { sub: 'h_0 = 0,\\quad c_0 = 0', cap: 'Перед первым словом памяти нет.' }); }
+    if (at('for idx')) {
+      if (s.x) return { title: `Выход LSTM · отзыв ${review}`, rows: [{ t: `h_T = h_${t} = ${N(S.h)}`, s: 'cur' }],
+        cap: 'Слова кончились. Классификатор получит только последний выход h_T.' };
+      t++; const idx = v.idx, x = g.E[idx];
+      cell = { word: g.words[idx], x, vals: { x: ` = ${pair(x)}` } };
+      return lstm(['x'], { sub: `x_${t} = E[\\text{${cell.word}}] = E_{${idx}} = ${pair(x)}`, cap: 'Embedding: номер слова выбирает строку таблицы E.' });
+    }
+    if (at('def lstm_step')) {
+      cell.hp = check('h_{t-1}', v.h, S.h); cell.cp = check('c_{t-1}', v.c, S.c);
+      return lstm([], { sub: `x_t = ${pair(cell.x)},\\quad h_{t-1} = ${N(cell.hp)},\\quad c_{t-1} = ${N(cell.cp)}`, cap: 'Вход шага: вектор слова и память прошлого шага.' });
+    }
+    if (at('z = ')) {
+      const { W, U, b } = g, x = cell.x;
+      cell.z = GATES.map(([key], k) => check(`z_${key}`, v.z[k], x[0] * W[0][k] + x[1] * W[1][k] + cell.hp * U[k] + b[k]));
+      GATES.forEach(([key, , fn], k) => { cell.vals[key] = ` = ${fn}(${N(cell.z[k])})`; });
+      const rows = GATES.map(([, sym], k) => {
+        const n = sym === '\\tilde c' ? 'c' : sym;
+        return `W_${n} x_t + U_${n} h_{t-1} + b_${n} &= ${M(x[0])}\\cdot ${M(W[0][k])} + ${M(x[1])}\\cdot ${M(W[1][k])} + ${M(cell.hp)}\\cdot ${M(U[k])} + ${N(b[k])} = ${N(cell.z[k])}`;
+      });
+      return lstm(['i', 'f', 'c_hat', 'o'], { sub: aligned(rows), cap: 'Сначала аргумент каждого вентиля: входная часть + часть от прошлого h + смещение.' });
+    }
+    const gate = GATES.find(([key]) => at(key + ' = '));
+    if (gate) {
+      const [key, sym, fn] = gate, k = GATES.indexOf(gate), z = cell.z[k];
+      let sub, val;
+      if (fn === '\\sigma') { const e = R(Math.exp(-z)); val = check(key, v[key], 1 / (1 + e)); sub = `${sym}_t = ${sigma(z, val)}`; }
+      else {
+        const a = R(Math.exp(z)), b = R(Math.exp(-z)); val = check(key, v[key], (a - b) / (a + b));
+        sub = `\\tilde c_t = \\tanh(${N(z)}) = \\frac{e^{${N(z)}} - e^{${N(-z)}}}{e^{${N(z)}} + e^{${N(-z)}}} = \\frac{${N(a)} - ${N(b)}}{${N(a)} + ${N(b)}} = ${N(val)}`;
+      }
+      cell[key] = val; cell.vals[key] += ` = ${N(val)}`;
+      const caps = { i: 'Входной вентиль: какую долю нового записать в память (0…1).', f: 'Вентиль забывания: какую долю старой памяти оставить (0…1).',
+        c_hat: 'Кандидат в память: что записать (−1…1).', o: 'Выходной вентиль: какую долю памяти показать наружу (0…1).' };
+      return lstm([key], { sub, cap: caps[key], w: [fn === '\\sigma' ? 'sigmoid' : 'tanh-activation'] });
+    }
+    if (at('c = f')) {
+      const a = R(cell.f * cell.cp), b = R(cell.i * cell.c_hat);
+      cell.c = check('c_t', v.c, a + b); cell.vals.c = ` = ${N(cell.c)}`;
+      return lstm(['c'], { sub: `c_t = ${N(cell.f)}\\cdot ${M(cell.cp)} + ${N(cell.i)}\\cdot ${M(cell.c_hat)} = ${N(a)} + ${M(b)} = ${N(cell.c)}`,
+        cap: 'Новая память: старая, умноженная на f, плюс кандидат, умноженный на i. ⊙ — поэлементно; в книге векторы из 32 чисел, здесь по одному.' });
+    }
+    if (at('h = o')) {
+      const th = R(Math.tanh(cell.c)); cell.h = check('h_t', v.h, cell.o * th); cell.vals.h = ` = ${N(cell.h)}`;
+      return lstm(['h'], { sub: `h_t = ${N(cell.o)}\\cdot\\tanh(${N(cell.c)}) = ${N(cell.o)}\\cdot ${M(th)} = ${N(cell.h)}`, cap: 'Выход ячейки: сжатая tanh память, пропущенная через выходной вентиль.' });
+    }
+    if (at('return h, c')) return lstm([], { sub: `(h_t,\\ c_t) = (${N(cell.h)},\\ ${N(cell.c)})`, cap: 'Шаг t закончен: функция отдаёт выход и память.' });
+    if (at('h, c = lstm_step')) {
+      S.h = check('h', v.h, cell.h); S.c = check('c', v.c, cell.c);
+      return lstm([], { sub: `h_${t} = ${N(S.h)},\\quad c_${t} = ${N(S.c)}`, cap: `Для следующего слова это будут h_{t−1} и c_{t−1}.` });
+    }
+    if (at('print(f"{words')) return lstm([]);
+    if (at('H.append')) {
+      S.H.push(S.h);
+      return { title: 'Выход LSTM', rows: [{ t: `h^{(${review})} = h_T = ${N(S.h)}`, s: 'cur' }],
+        sub: `H = (${S.H.map(N).join(',\\ ')})`, cap: 'По одному числу на отзыв — всё, что увидит классификатор.' };
+    }
+    if (at('w_d, b_d = ')) { S.w = v.w_d; S.b = v.b_d; return { title: 'Выход сети и ошибка', rows: system(OUT, out, []), sub: `w = ${N(S.w)},\\quad b = ${N(S.b)}`, cap: 'Веса слоя Dense(1): один вес на h и смещение.' }; }
+    if (at('p = [sigmoid')) {
+      const [rows, vals, title] = trainOrOut(), sub = [];
+      S.p = S.H.map((h, k) => {
+        const z = R(S.w * h + S.b), val = check(`p_${k + 1}`, v.p[k], 1 / (1 + R(Math.exp(-z))));
+        sub.push(`p_${k + 1} &= \\sigma(${N(S.w)}\\cdot ${M(h)} + ${M(S.b)}) = ${sigma(z, val)}`);
+        return val;
+      });
+      vals.p = ` = (${S.p.map(N).join(',\\ ')})`;
+      return { title, rows: system(rows, vals, ['p']), sub: aligned(sub), cap: 'Dense + sigmoid: вероятность того, что отзыв позитивный.', w: ['sigmoid'] };
+    }
+    if (at('loss = bce')) {
+      const [rows, vals, title] = trainOrOut(), y = g.labels, n = S.p.length;
+      const full = S.p.map((p, k) => `${y[k]}\\cdot\\ln ${N(p)} + ${1 - y[k]}\\cdot\\ln(1-${N(p)})`).join(' + ');
+      const kept = S.p.map((p, k) => y[k] ? `\\ln ${N(p)}` : `\\ln ${N(R(1 - p))}`);
+      const logs = S.p.map((p, k) => R(Math.log(y[k] ? p : R(1 - p))));
+      S.L = check('L', v.loss, -logs.reduce((a, b) => a + b) / n); vals.L = ` = ${N(S.L)}`;
+      return { title, rows: system(rows, vals, ['L']), w: ['logistic-cost'],
+        sub: aligned([`L &= -\\tfrac1${n}\\big[${full}\\big]`, `&= -\\tfrac1${n}\\big[${kept.join(' + ')}\\big] = -\\tfrac1${n}\\big[${logs.map(M).join(' + ')}\\big] = ${N(S.L)}`]),
+        cap: `y = 1 оставляет ln p, y = 0 — ln(1 − p). N = ${n}: оба отзыва в одном батче.` };
+    }
+    if (at('print(f"p=') || at('print(f"epoch')) { const [rows, vals, title] = trainOrOut(); return { title, rows: system(rows, vals, []) }; }
+    if (at('v_w = v_b = ')) { S.v_w = 0; S.v_b = 0; return { title: 'Обучение', rows: system(TRAIN, {}, []), sub: 'v_w = v_b = 0', cap: 'RMSprop копит средний квадрат градиента; в начале он нулевой.' }; }
+    if (at('for epoch')) {
+      if (s.x) return null;
+      epoch = v.epoch; train = {};
+      return { title: `Обучение · эпоха ${epoch}`, rows: system(TRAIN, train, []), cap: 'Один шаг обучения на всём батче. Обучаем только Dense; веса LSTM в книге меняются так же, через цепное правило.' };
+    }
+    if (at('g_w = ') || at('g_b = ')) {
+      const w = at('g_w'), y = g.labels, n = S.p.length, d = S.p.map((p, k) => R(p - y[k]));
+      const parts = w ? d.map((dk, k) => R(dk * S.H[k])) : d;
+      const val = check(w ? 'g_w' : 'g_b', w ? v.g_w : v.g_b, parts.reduce((a, b) => a + b) / n);
+      S[w ? 'g_w' : 'g_b'] = val; train[w ? 'g_w' : 'g_b'] = ` = ${N(val)}`;
+      const terms = S.p.map((p, k) => `(${N(p)} - ${y[k]})` + (w ? `\\cdot ${M(S.H[k])}` : '')).join(' + ');
+      return { title: `Обучение · эпоха ${epoch}`, rows: system(TRAIN, train, [w ? 'g_w' : 'g_b']), w: ['logistic-gradient-component'],
+        sub: aligned([`g_${w ? 'w' : 'b'} &= \\tfrac1${n}\\big[${terms}\\big]`, `&= \\tfrac1${n}\\big[${parts.map(M).join(' + ')}\\big] = ${N(val)}`]),
+        cap: w ? 'Для пары sigmoid + кросс-энтропия производная по z равна p − y; по w — ещё умножить на вход h.' : 'То же для смещения: его «вход» равен 1.' };
+    }
+    if (at('v_w = 0.9') || at('v_b = 0.9')) {
+      const k = at('v_w') ? 'w' : 'b', gk = S['g_' + k], prev = S['v_' + k], g2 = R(gk * gk);
+      const val = check('v_' + k, v['v_' + k], 0.9 * prev + 0.1 * g2); S['v_' + k] = val; train['v_' + k] = ` = ${N(val)}`;
+      return { title: `Обучение · эпоха ${epoch}`, rows: system(TRAIN, train, ['v_' + k]),
+        sub: `v_${k} = 0.9\\cdot ${N(prev)} + 0.1\\cdot ${M(gk)}^2 = 0.9\\cdot ${N(prev)} + 0.1\\cdot ${N(g2)} = ${N(val)}`, cap: 'ρ = 0.9 — параметр rmsprop по умолчанию.' };
+    }
+    if (at('w_d -= ') || at('b_d -= ')) {
+      const k = at('w_d') ? 'w' : 'b', old = S[k], gk = S['g_' + k], vk = S['v_' + k];
+      const sq = R(Math.sqrt(vk)), ratio = R(gk / (sq + 1e-7));
+      const val = check(k, v[k + '_d'], old - 0.001 * ratio); S[k] = val; train[k] = ` = ${N(val)}`;
+      return { title: `Обучение · эпоха ${epoch}`, rows: system(TRAIN, train, [k]),
+        sub: aligned([`${k} &= ${N(old)} - 0.001\\cdot\\frac{${N(gk)}}{\\sqrt{${N(vk)}} + 10^{-7}} = ${N(old)} - 0.001\\cdot\\frac{${N(gk)}}{${N(sq)} + 10^{-7}}`, `&= ${N(old)} - 0.001\\cdot ${M(ratio)} = ${N(val)}`]),
+        cap: 'η = 0.001, ε = 10⁻⁷. Градиент делится на свой средний размер, поэтому шаг ≈ η при любой величине g.' };
+    }
+    return null;
+  }
+
+  // v — переменные текущей функции, g — глобальные (внутри lstm_step — с последнего шага модуля).
+  steps.forEach(s => {
+    const v = s.n, g = s.f ? G : v;
+    const m = math(src[s.l[0] - 1].trim(), s, v, g);
+    if (m) s.m = m;
+    if (!s.f) G = v;
+    delete s.n;
+  });
+};

@@ -2,8 +2,8 @@
 
 stdin — исходный код. stdout — JSON {"steps": [...], "output": "..."}.
 Шаг = один выполненный оператор: какие строки он занимает, в какой функции,
-все переменные этой функции после него (округлены до 4 знаков) и сколько
-строк к этому моменту напечатано. Заходим только в функции из нескольких
+все переменные этой функции после него (округлены до 4 знаков, а в n — точно)
+и сколько строк к этому моменту напечатано. Заходим только в функции из нескольких
 операторов: однострочные помощники вроде sigmoid считаются за один шаг.
 """
 import ast
@@ -96,7 +96,9 @@ def emit(frame, stmt, next_line=None, **extra):
     name = frame.f_code.co_name
     step = {'l': list(stmt), 'f': '' if name == '<module>' else name,
             'v': now, 'c': changed, 't': targets.get(stmt, []),
-            'o': out.getvalue().count('\n')}
+            'o': out.getvalue().count('\n'),
+            # точные значения (копия: списки дальше меняются) — для формул при сборке
+            'n': json.loads(json.dumps({k: frame.f_locals[k] for k in now}))}
     body = loops.get(stmt)
     if body and not (next_line and body[0] <= next_line <= body[1]):
         step['x'] = 1  # заголовок for отработал вхолостую: цикл окончен

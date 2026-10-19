@@ -102,8 +102,8 @@
 .trace-bar input[type=range] { flex:1 1 14rem; min-width:8rem; accent-color:var(--accent); }
 .trace-counter { min-width:7.5rem; font-weight:650; font-variant-numeric:tabular-nums; }
 .trace-where { flex-basis:100%; color:var(--muted); font-family:var(--mono); font-size:.76rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.trace-grid { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1.45fr) minmax(0,1fr); grid-template-rows:minmax(0,1.15fr) minmax(0,1fr); gap:.6rem; }
-.trace-code { grid-row:1 / span 2; }
+.trace-grid { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); grid-template-rows:minmax(0,1.3fr) minmax(0,.7fr); grid-template-areas:"code math" "log vars"; gap:.6rem; }
+.trace-code { grid-area:code; } .trace-math { grid-area:math; } .trace-log { grid-area:log; } .trace-vars { grid-area:vars; }
 .trace-box { display:flex; flex-direction:column; min-height:0; border:1px solid var(--card-border); border-radius:10px; background:var(--card-bg); }
 .trace-label { margin:0; padding:.45rem .8rem .35rem; border-bottom:1px solid var(--card-border); color:var(--muted); font-size:.68rem; font-weight:750; letter-spacing:.07em; text-transform:uppercase; }
 /* Панели не прокручиваются колесом: колесо крутит страницу, а панели сами следят за шагом */
@@ -125,6 +125,19 @@
 .tk-num { color:var(--tk-num); }
 .tk-kw { color:var(--tk-kw); font-weight:650; }
 .trace-vars .trace-body,.trace-log .trace-body { padding:.45rem .8rem; }
+/* Формулы сети: обычный шрифт, KaTeX слева; строки системы — посчитано / сейчас / впереди */
+.trace-math .trace-body { padding:.4rem .8rem; font-family:inherit; font-size:.9rem; line-height:1.45; }
+.trace-math-title { margin:0 0 .3rem; font-weight:700; font-size:.95em; }
+.trace-eq { padding:.05rem .45rem; border-radius:5px; }
+.trace-eq .katex-display,.trace-subst .katex-display { margin:0; text-align:left; }
+.trace-eq .katex-display > .katex,.trace-subst .katex-display > .katex { text-align:left; }
+.trace-eq .katex { font-size:1.02em; }
+.trace-eq.is-todo { opacity:.42; }
+.trace-eq.is-cur { background:var(--formula-bg); box-shadow:inset 3px 0 var(--accent); }
+.trace-subst { margin:.5rem 0 0; padding:.45rem .6rem; border:1px dashed var(--accent); border-radius:6px; background:var(--bg); }
+.trace-subst .katex { font-size:1.05em; }
+.trace-cap { margin:.4rem 0 0; color:var(--muted); font-size:.88em; }
+.trace-math .trace-empty { font-family:inherit; }
 .trace-sub { margin:.1rem 0 .2rem; color:var(--muted); font-size:.74rem; }
 .trace-group + .trace-group { margin-top:.6rem; padding-top:.4rem; border-top:1px dashed var(--card-border); opacity:.7; }
 .trace-var { display:grid; grid-template-columns:minmax(5.5rem,max-content) minmax(0,1fr); gap:.9rem; padding:0 .35rem; border-radius:4px; }
@@ -166,8 +179,9 @@ a:focus-visible,button:focus-visible,summary:focus-visible { outline:2px solid v
   .learning-flow { gap:0; margin:1rem 0 2rem; }
   .reading-entry { grid-template-columns:4.5rem 1fr 1rem; gap:.6rem; }
   .trace { width:auto; margin-left:0; }
-  .trace-grid { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1.3fr) minmax(0,.9fr) minmax(0,.65fr); }
-  .trace-code { grid-row:auto; }
+  .trace-grid { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,.95fr) minmax(0,1.1fr) minmax(0,.65fr) minmax(0,.4fr); grid-template-areas:"code" "math" "vars" "log"; gap:.4rem; }
+  .trace-math .trace-body { font-size:.78rem; overflow-x:auto; overflow-y:hidden; }
+  .trace-eq.is-todo,.trace-eq.is-done,.trace-cap { display:none; }
   .trace-bar { padding:.4rem .5rem; }
   .trace-counter { min-width:0; }
   .dbg { padding:0 .5rem; }

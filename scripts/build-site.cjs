@@ -93,21 +93,26 @@ for (const example of officialExamples) {
   if (example.miniDemo) {
     // Мини-код выполняется построчно под трассировщиком; страница прокручивает шаги.
     // Обычный запуск обязан напечатать ровно то же, что видно в логе трассировки.
-    const mini = example.miniDemo, key = 'mini-' + example.id, cached = previousResults[key];
-    const traceFile = `data/traces/${key}.json`, code = mini.code;
-    if (checkPython || !cached || cached.code !== code || !fs.existsSync(path.join(root, traceFile))) {
-      const plain = spawnSync('python', ['-X','utf8','-c',code], {encoding:'utf8',timeout:15000});
-      if (plain.status !== 0) throw Error(`Python ${key}: ${plain.stderr || plain.error}`);
-      const traced = spawnSync('python', ['-X','utf8',path.join(root,'scripts/trace-python.py')], {input:code,encoding:'utf8',timeout:15000});
-      if (traced.status !== 0) throw Error(`Trace ${key}: ${traced.stderr || traced.error}`);
-      const trace = JSON.parse(traced.stdout);
-      if (trace.output !== plain.stdout.replace(/\r\n/g,'\n')) throw Error(`Trace ${key}: вывод трассировки не совпадает с обычным запуском`);
-      write(traceFile, JSON.stringify(trace) + '\n');
-      codeResults[key] = {code,output:trace.output.trimEnd()};
-    } else codeResults[key] = cached;
+    // Трассировка пересчитывается при каждой сборке: формулам сети нужны точные значения шагов.
+    const mini = example.miniDemo, key = 'mini-' + example.id, traceFile = `data/traces/${key}.json`, code = mini.code;
+    const plain = spawnSync('python', ['-X','utf8','-c',code], {encoding:'utf8',timeout:15000});
+    if (plain.status !== 0) throw Error(`Python ${key}: ${plain.stderr || plain.error}`);
+    const traced = spawnSync('python', ['-X','utf8',path.join(root,'scripts/trace-python.py')], {input:code,encoding:'utf8',timeout:15000});
+    if (traced.status !== 0) throw Error(`Trace ${key}: ${traced.stderr || traced.error}`);
+    const trace = JSON.parse(traced.stdout);
+    if (trace.output !== plain.stdout.replace(/\r\n/g,'\n')) throw Error(`Trace ${key}: вывод трассировки не совпадает с обычным запуском`);
+    const addMath = mini.math; delete mini.math;
+    addMath(trace.steps, code);   // сверяет каждую подстановку с программой
+    for (const step of trace.steps) for (const id of step.m?.w || []) {
+      if (!formulas.has(canonical(id))) throw Error(`Unknown formula ${id} in ${key}`);
+    }
+    const traceJson = JSON.stringify(trace) + '\n';
+    write(traceFile, traceJson);
+    codeResults[key] = {code,output:trace.output.trimEnd()};
+    // Версия в адресе: после выкладки браузер не возьмёт старые шаги из кэша.
     // Число шагов нужно странице сразу: по нему задаётся высота прокрутки до загрузки шагов.
-    mini.trace = traceFile;
-    mini.steps = JSON.parse(fs.readFileSync(path.join(root, traceFile), 'utf8')).steps.length;
+    mini.trace = traceFile + '?v=' + require('node:crypto').createHash('sha1').update(traceJson).digest('hex').slice(0, 10);
+    mini.steps = trace.steps.length;
     write(`examples/${key}.py`, code);
   }
 }
