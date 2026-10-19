@@ -75,9 +75,9 @@
 .code-actions button { background:var(--surface-bg); color:var(--accent); border:1px solid var(--card-border); border-radius:5px; padding:.4rem .7rem; cursor:pointer; }
 .code-actions .mini-toggle { padding:.4rem .7rem; border-radius:5px; background:var(--accent); color:var(--bg); font-weight:650; text-decoration:none; }
 /* Разбор по шагам: липкий экран «код | переменные | вывод», прокрутка страницы = шаги */
-.trace { --mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace; --tk-str:#b45309; --tk-num:#0f766e; --tk-kw:#7c3aed;
+.trace { --mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace; --tk-str:#b45309; --tk-num:#0f766e; --tk-kw:#7c3aed; --dbg-go:#15803d; --bp:#e51400;
   width:min(calc(100vw - 2rem),96rem); margin:2.5rem 0 2rem calc(50% - min(calc(50vw - 1rem),48rem)); scroll-margin-top:1rem; }
-:root[data-theme="dark"] .trace { --tk-str:#fbbf24; --tk-num:#5eead4; --tk-kw:#c4b5fd; }
+:root[data-theme="dark"] .trace { --tk-str:#fbbf24; --tk-num:#5eead4; --tk-kw:#c4b5fd; --dbg-go:#4ade80; --bp:#f14c4c; }
 .trace > h2 { margin:0 0 .4rem; font-size:1.25rem; }
 .trace-intro { max-width:56rem; margin:0 0 .8rem; }
 .trace-diff { margin:.7rem 0 0; font-size:.85rem; }
@@ -90,8 +90,15 @@
 @supports (height:100dvh) { .trace-track { height:calc(100dvh + var(--trace-span,0px)); } .trace-stage { height:100dvh; } }
 .trace-loading { margin:auto; color:var(--muted); }
 .trace-bar { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .7rem; padding:.5rem .7rem; border:1px solid var(--card-border); border-radius:10px; background:var(--surface-bg); font-size:.83rem; }
-.trace-bar button { width:2.3rem; height:2rem; border:1px solid var(--card-border); border-radius:6px; background:var(--card-bg); color:var(--accent); cursor:pointer; }
-.trace-bar button:hover { background:var(--button-hover); }
+.dbg-tools { display:flex; flex-wrap:wrap; gap:.3rem; }
+.dbg { display:inline-flex; align-items:center; gap:.35rem; height:2.1rem; padding:0 .55rem; border:1px solid var(--card-border); border-radius:6px; background:var(--card-bg); color:var(--accent); cursor:pointer; font-size:.8rem; }
+.dbg:hover:not(:disabled) { background:var(--button-hover); border-color:var(--accent); }
+.dbg:disabled { opacity:.38; cursor:default; }
+.dbg svg { flex:none; width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.dbg-restart,.dbg-continue { color:var(--dbg-go); }
+.dbg-label { color:var(--text); }
+.dbg kbd { padding:0 .25rem; border:1px solid var(--card-border); border-radius:3px; background:var(--bg); color:var(--muted); font-family:var(--mono); font-size:.66rem; }
+.dbg-back { margin-left:.4rem; }
 .trace-bar input[type=range] { flex:1 1 14rem; min-width:8rem; accent-color:var(--accent); }
 .trace-counter { min-width:7.5rem; font-weight:650; font-variant-numeric:tabular-nums; }
 .trace-where { flex-basis:100%; color:var(--muted); font-family:var(--mono); font-size:.76rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -103,6 +110,10 @@
 .trace-body { position:relative; flex:1; min-height:0; overflow:hidden; padding:.45rem 0; font-family:var(--mono); font-size:.8rem; line-height:1.6; }
 .trace-line { display:flex; min-height:1.6em; padding-right:.7rem; white-space:pre; }
 .trace-num { flex:none; width:2.8rem; padding-right:.8rem; text-align:right; color:var(--muted); opacity:.65; user-select:none; }
+.trace-num.can-bp { position:relative; cursor:pointer; }
+.trace-num.can-bp::before { content:""; position:absolute; left:.4rem; top:50%; width:.6rem; height:.6rem; margin-top:-.3rem; border-radius:50%; background:var(--bp); opacity:0; }
+.trace-num.can-bp:hover::before { opacity:.35; }
+.trace-num.is-bp::before,.trace-num.is-bp:hover::before { opacity:1; }
 .trace-src { flex:none; }
 .trace-val { flex:1 1 auto; min-width:0; padding-left:1.6rem; overflow:hidden; text-overflow:ellipsis; color:var(--muted); }
 .trace-line.is-current { background:var(--formula-bg); box-shadow:inset 3px 0 var(--accent); }
@@ -143,6 +154,7 @@
 .params dt,.worked-example-values dt { overflow-x:auto; max-width:100%; }
 a:focus-visible,button:focus-visible,summary:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 [hidden] { display:none !important; }
+@media(max-width:1100px){ .dbg kbd { display:none; } }
 @media(max-width:640px){
   .masthead { padding:1rem; gap:.5rem; }
   .brand span { display:none; }
@@ -158,6 +170,10 @@ a:focus-visible,button:focus-visible,summary:focus-visible { outline:2px solid v
   .trace-code { grid-row:auto; }
   .trace-bar { padding:.4rem .5rem; }
   .trace-counter { min-width:0; }
+  .dbg { padding:0 .5rem; }
+  .trace-bar input[type=range] { flex-basis:9rem; }
+  .dbg-label { display:none; }
+  .trace-num.can-bp::before { left:.15rem; }
   .trace-where { white-space:normal; }
   .trace-label { padding:.3rem .6rem; font-size:.62rem; }
   .trace-body { font-size:.72rem; line-height:1.5; }

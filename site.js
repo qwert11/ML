@@ -241,11 +241,28 @@ function traceDemo(example) {
   all.append(el('summary',null,'Весь код и полный вывод'),pre,output);
   section.append(actions,diff,track,all);
   fetch(urlFor(mini.trace)).then(r=>{if(!r.ok)throw Error(r.status);return r.json();})
-    .then(trace=>traceViewer(stage,track,mini.code,trace))
+    .then(trace=>traceViewer(stage,track,mini.code,trace,key))
     .catch(()=>stage.replaceChildren(el('p','trace-loading','Не удалось загрузить шаги. Код можно скопировать и запустить у себя.')));
   return section;
 }
-function traceViewer(stage,track,code,trace) {
+// Кнопки отладчика: иконки в духе VS Code, клавиши те же.
+const DEBUG_ICONS={
+  restart:'<path d="M12.9 9.2A5 5 0 1 1 11.5 4.4"/><path d="M12.2 1.6v3.2H9"/>',
+  continue:'<path d="M3.5 3v10"/><path d="M7 3.2 13 8l-6 4.8z" fill="currentColor"/>',
+  over:'<path d="M3 9.5a5 5 0 0 1 10 0"/><path d="M10.6 7.6 13 10l2.2-2.6"/><circle cx="8" cy="13" r="1.6" fill="currentColor" stroke="none"/>',
+  into:'<path d="M8 1.5V9"/><path d="M5 6.2l3 3 3-3"/><circle cx="8" cy="13" r="1.6" fill="currentColor" stroke="none"/>',
+  out:'<path d="M8 9.5V2"/><path d="M5 4.8l3-3 3 3"/><circle cx="8" cy="13" r="1.6" fill="currentColor" stroke="none"/>',
+  back:'<path d="M13 9.5a5 5 0 0 0-10 0"/><path d="M5.4 7.6 3 10 .8 7.4"/><circle cx="8" cy="13" r="1.6" fill="currentColor" stroke="none"/>'
+};
+const DEBUG_BUTTONS=[
+  ['restart','Заново','Ctrl+Shift+F5','В начало программы'],
+  ['continue','Продолжить','F5','До следующей точки останова (клик по номеру строки), без них — до конца'],
+  ['over','Пройти','F10','Шаг с обходом: вызов функции выполняется целиком'],
+  ['into','Зайти','F11','Шаг с заходом внутрь вызываемой функции; то же — стрелка →'],
+  ['out','Выйти','Shift+F11','Доработать текущую функцию и вернуться туда, откуда её вызвали'],
+  ['back','Назад','←','Шаг назад']
+];
+function traceViewer(stage,track,code,trace,key) {
   const steps=trace.steps,N=steps.length,src=code.replace(/\n$/,'').split('\n'),out=trace.output.replace(/\n$/,'').split('\n');
   let section='';const book=src.map(line=>{const m=line.match(/^\s*# книга: (.*)$/);if(m)section=m[1];return section;});
   const shown=(s,names)=>names.map(n=>n+' = '+s.v[n]).join(',  ');
@@ -259,15 +276,39 @@ function traceViewer(stage,track,code,trace) {
     return s.o>before ? 'напечатала: '+out.slice(before,s.o).join(' | ').trim() : '';
   });
   const globalsAt=[];steps.forEach((s,k)=>{globalsAt[k]=s.f ? globalsAt[k-1] : s.v;});
-  const bar=el('div','trace-bar'),prev=el('button',null,'◀'),next=el('button',null,'▶'),range=el('input'),counter=el('span','trace-counter'),where=el('span','trace-where');
-  prev.type=next.type='button';prev.setAttribute('aria-label','Предыдущий шаг');next.setAttribute('aria-label','Следующий шаг');
+  // Глубина вызова на каждом шаге: «Пройти» ищет шаг не глубже текущего, «Выйти» — мельче.
+  let depthNow=0;const depth=steps.map(s=>{if(s.call)depthNow++;const d=depthNow;if(s.r!==undefined)depthNow--;return d;});
+  const after=(k,test)=>{for(let j=k+1;j<N;j++)if(test(j))return j;return N-1;};
+  // Строка → начало оператора, на котором можно остановиться; точки останова помнит браузер.
+  const stopAt=new Map();steps.forEach(s=>{for(let n=s.l[0];n<=s.l[1];n++)stopAt.set(n,s.l[0]);});
+  const bpKey='trace-bp:'+key;let bps=new Set();
+  try{bps=new Set(JSON.parse(localStorage.getItem(bpKey)||'[]').filter(n=>stopAt.get(n)===n));}catch{}
+  const target={
+    restart:()=>0,
+    continue:k=>after(k,j=>bps.has(steps[j].l[0])),
+    over:k=>after(k,j=>depth[j]<=depth[k]),
+    into:k=>k+1,
+    out:k=>after(k,j=>depth[j]<depth[k]),
+    back:k=>k-1
+  };
+  const bar=el('div','trace-bar'),tools=el('div','dbg-tools'),range=el('input'),counter=el('span','trace-counter'),where=el('span','trace-where'),buttons={};
+  DEBUG_BUTTONS.forEach(([name,label,keys,title])=>{
+    const b=el('button','dbg dbg-'+name);b.type='button';b.title=title+' — '+keys;b.setAttribute('aria-label',label+'. '+title);
+    b.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true">'+DEBUG_ICONS[name]+'</svg>';b.append(el('span','dbg-label',label),el('kbd',null,keys));
+    b.addEventListener('click',()=>go(target[name](current)));buttons[name]=b;tools.append(b);
+  });
   range.type='range';range.min=0;range.max=N-1;range.step=1;range.setAttribute('aria-label','Шаг выполнения');
-  bar.append(prev,next,range,counter,where);
+  bar.append(tools,range,counter,where);
   const box=(title,cls)=>{const wrap=el('div','trace-box '+cls),body=el('div','trace-body');wrap.append(el('p','trace-label',title),body);return [wrap,body];};
-  const [codeBox,codeBody]=box('Код · подсвечена строка, которая только что выполнилась','trace-code');
+  const [codeBox,codeBody]=box('Код · подсвечена только что выполненная строка · клик по номеру — точка останова','trace-code');
   const [varsBox,varsBody]=box('Переменные после этой строки','trace-vars');
   const [logBox,logBody]=box('Вывод программы (print)','trace-log');
   const rows=src.map((text,i)=>{const row=el('div','trace-line');row.append(el('span','trace-num',String(i+1)),pyLine(text),el('span','trace-val'));codeBody.append(row);return row;});
+  const paintBps=()=>rows.forEach((row,i)=>row.firstChild.classList.toggle('is-bp',bps.has(i+1)));
+  rows.forEach((row,i)=>{const at=stopAt.get(i+1),num=row.firstChild;if(!at)return;
+    num.classList.add('can-bp');num.title='Точка останова: F5 / «Продолжить» остановится здесь';
+    num.addEventListener('click',()=>{bps.has(at)?bps.delete(at):bps.add(at);try{localStorage.setItem(bpKey,JSON.stringify([...bps]));}catch{}paintBps();});});
+  paintBps();
   const grid=el('div','trace-grid');grid.append(codeBox,varsBox,logBox);
   stage.replaceChildren(bar,grid);
   const reveal=(pane,node,center)=>{if(!node)return;const top=node.offsetTop,bottom=top+node.offsetHeight;
@@ -302,6 +343,9 @@ function traceViewer(stage,track,code,trace) {
     out.slice(0,s.o).forEach((line,i)=>logBody.append(el('div','trace-out'+(i>=before?' is-new':''),line||' ')));
     logBody.scrollTop=logBody.scrollHeight;
     range.value=k;counter.textContent='Шаг '+(k+1)+' из '+N;
+    buttons.restart.disabled=buttons.back.disabled=k===0;
+    buttons.continue.disabled=buttons.over.disabled=buttons.into.disabled=k===N-1;
+    buttons.out.disabled=!depth[k];
     where.textContent='книга: '+(book[s.l[0]-1]||'—')+(s.f ? '  ·  внутри '+s.f+'(), вызов из строки '+caller : '');
   }
   const fromScroll=()=>Math.min(N-1,Math.max(0,Math.round(-track.getBoundingClientRect().top/TRACE_STEP_PX)));
@@ -310,12 +354,17 @@ function traceViewer(stage,track,code,trace) {
   const onScroll=()=>{if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;render(fromScroll());});};
   addEventListener('scroll',onScroll,{passive:true});addEventListener('resize',()=>{current=-1;onScroll();});
   range.addEventListener('input',()=>go(Number(range.value)));
-  prev.addEventListener('click',()=>go(current-1));next.addEventListener('click',()=>go(current+1));
-  // ← → листают шаги, пока экран разбора занимает середину окна.
+  // Клавиши отладчика работают, пока экран разбора занимает середину окна.
+  // F5 перехватывается и на последнем шаге, иначе браузер перезагрузит страницу.
   addEventListener('keydown',e=>{
-    if(e.altKey||e.ctrlKey||e.metaKey||e.target.closest?.('input,textarea,select'))return;
+    if(e.altKey||e.metaKey||e.target.closest?.('input,textarea,select'))return;
     const rect=track.getBoundingClientRect();if(rect.top>innerHeight/2||rect.bottom<innerHeight/2)return;
-    if(e.key==='ArrowRight'){e.preventDefault();go(current+1);}else if(e.key==='ArrowLeft'){e.preventDefault();go(current-1);}
+    const k=e.key,shift=e.shiftKey;
+    const name=e.ctrlKey ? (shift&&k==='F5' ? 'restart' : null)
+      : k==='F5'&&!shift ? 'continue' : k==='F10'&&!shift ? 'over' : k==='F11' ? (shift ? 'out' : 'into')
+      : k==='ArrowRight'&&!shift ? 'into' : k==='ArrowLeft'&&!shift ? 'back' : null;
+    if(!name)return;
+    e.preventDefault();if(!buttons[name].disabled)go(target[name](current));
   });
   render(fromScroll());
 }
