@@ -106,8 +106,13 @@
 .trace-code { grid-area:code; } .trace-math { grid-area:math; } .trace-log { grid-area:log; } .trace-vars { grid-area:vars; }
 .trace-box { display:flex; flex-direction:column; min-height:0; border:1px solid var(--card-border); border-radius:10px; background:var(--card-bg); }
 .trace-label { margin:0; padding:.45rem .8rem .35rem; border-bottom:1px solid var(--card-border); color:var(--muted); font-size:.68rem; font-weight:750; letter-spacing:.07em; text-transform:uppercase; }
-/* Панели не прокручиваются колесом: колесо крутит страницу, а панели сами следят за шагом */
-.trace-body { position:relative; flex:1; min-height:0; overflow:hidden; padding:.45rem 0; font-family:var(--mono); font-size:.8rem; line-height:1.6; }
+/* У каждой панели своя прокрутка: колесо над панелью с длинным содержимым листает её и не уходит в шаги.
+   Колесо над панелью, где всё поместилось, над кнопками и между панелями по-прежнему крутит шаги.
+   contain — только у переполненных (.can-scroll): Chrome глушит колесо и у панели без прокрутки. */
+.trace-body.can-scroll { overscroll-behavior-y:contain; }
+.trace-body { position:relative; flex:1; min-height:0; overflow:auto; scrollbar-width:thin; scrollbar-color:var(--muted) transparent; padding:.45rem 0; font-family:var(--mono); font-size:.8rem; line-height:1.6; }
+/* На тач-экране свайп по панелям листает шаги, поэтому панели там не прокручиваются */
+@media(pointer:coarse){ .trace-body { overflow:hidden; } .trace-body.can-scroll { overscroll-behavior-y:auto; } }
 .trace-line { display:flex; min-height:1.6em; padding-right:.7rem; white-space:pre; }
 .trace-num { flex:none; width:2.8rem; padding-right:.8rem; text-align:right; color:var(--muted); opacity:.65; user-select:none; }
 .trace-num.can-bp { position:relative; cursor:pointer; }

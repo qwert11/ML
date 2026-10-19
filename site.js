@@ -315,9 +315,10 @@ function traceViewer(stage,track,code,trace,key) {
     if(m.cap)inner.append(el('p','trace-cap',m.cap));
     if(m.w){const refs=el('p','trace-cap','Подробно: ');m.w.forEach((id,i)=>{if(i)refs.append(' · ');refs.append(link(CATALOG.formulas.find(f=>f.id===canonicalId(id)).name+' →',wikiUrl(id)));});inner.append(refs);}
     mathBody.append(inner);
-    // Длинные формулы ужимаются до размера панели: панели не прокручиваются, колесо крутит шаги.
+    // Длинные формулы ужимаются по ширине панели; по высоте — только там, где панель не прокручивается (тач).
     // На телефоне — не мельче 75 %, остаток листается пальцем вбок.
-    for(let pass=0;pass<3;pass++){const k=Math.min(1,mathBody.clientWidth/inner.scrollWidth,mathBody.clientHeight/inner.scrollHeight);
+    const fitHeight=getComputedStyle(mathBody).overflowY==='hidden';
+    for(let pass=0;pass<3;pass++){const k=Math.min(1,mathBody.clientWidth/inner.scrollWidth,fitHeight ? mathBody.clientHeight/inner.scrollHeight : 1);
       if(k>=.995)break;inner.style.fontSize=Math.max(narrow.matches ? .75 : .55,(parseFloat(inner.style.fontSize)||100)/100*k*.98)*100+'%';}
   }
   const rows=src.map((text,i)=>{const row=el('div','trace-line');row.append(el('span','trace-num',String(i+1)),pyLine(text),el('span','trace-val'));codeBody.append(row);return row;});
@@ -365,6 +366,7 @@ function traceViewer(stage,track,code,trace,key) {
     buttons.continue.disabled=buttons.over.disabled=buttons.into.disabled=k===N-1;
     buttons.out.disabled=!depth[k];
     where.textContent='книга: '+(book[s.l[0]-1]||'—')+(s.f ? '  ·  внутри '+s.f+'(), вызов из строки '+caller : '');
+    [codeBody,mathBody,logBody,varsBody].forEach(b=>b.classList.toggle('can-scroll',b.scrollHeight>b.clientHeight+1));
   }
   const fromScroll=()=>Math.min(N-1,Math.max(0,Math.round(-track.getBoundingClientRect().top/TRACE_STEP_PX)));
   const go=k=>{k=Math.min(N-1,Math.max(0,k));scrollTo({top:scrollY+track.getBoundingClientRect().top+k*TRACE_STEP_PX,behavior:'instant'});render(k);};
