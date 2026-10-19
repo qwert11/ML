@@ -91,23 +91,24 @@ for (const example of officialExamples) {
   const attribution = `# Фрагмент официального кода Packt: Mastering Transformers\n# MIT License, Copyright (c) 2021 Packt\n# Источник: ${example.sourceUrl}\n`;
   write(`examples/packt-${example.id}.py`, attribution + example.code + '\n');
   if (example.miniDemo) {
-    // Мини-код — блоки одной программы: исполняем их по очереди в общем пространстве имён
-    // и сохраняем вывод каждого блока, чтобы показать его прямо под кодом блока.
+    // Мини-код выполняется построчно под трассировщиком; страница прокручивает шаги.
+    // Обычный запуск обязан напечатать ровно то же, что видно в логе трассировки.
     const mini = example.miniDemo, key = 'mini-' + example.id, cached = previousResults[key];
-    for (const block of mini.blocks) for (const id of block.formulas || []) {
-      if (!formulas.has(canonical(id))) throw Error(`Unknown formula ${id} in ${key}`);
-    }
-    const code = mini.blocks.map(block => block.code).join('\n\n');
-    if (checkPython || !cached || cached.code !== code || !cached.blocks) {
-      const runner = 'import io,json,sys,contextlib\nns={}\nout=[]\nfor b in json.loads(sys.stdin.read()):\n    buf=io.StringIO()\n    with contextlib.redirect_stdout(buf): exec(b,ns)\n    out.append(buf.getvalue().rstrip())\nprint(json.dumps(out,ensure_ascii=False))';
-      const result = spawnSync('python', ['-X','utf8','-c',runner], {input:JSON.stringify(mini.blocks.map(block => block.code)),encoding:'utf8',timeout:15000});
-      if (result.status !== 0) throw Error(`Python ${key}: ${result.stderr || result.error}`);
-      const blocks = JSON.parse(result.stdout);
-      codeResults[key] = {code,output:blocks.filter(Boolean).join('\n'),blocks};
+    const traceFile = `data/traces/${key}.json`, code = mini.code;
+    if (checkPython || !cached || cached.code !== code || !fs.existsSync(path.join(root, traceFile))) {
+      const plain = spawnSync('python', ['-X','utf8','-c',code], {encoding:'utf8',timeout:15000});
+      if (plain.status !== 0) throw Error(`Python ${key}: ${plain.stderr || plain.error}`);
+      const traced = spawnSync('python', ['-X','utf8',path.join(root,'scripts/trace-python.py')], {input:code,encoding:'utf8',timeout:15000});
+      if (traced.status !== 0) throw Error(`Trace ${key}: ${traced.stderr || traced.error}`);
+      const trace = JSON.parse(traced.stdout);
+      if (trace.output !== plain.stdout.replace(/\r\n/g,'\n')) throw Error(`Trace ${key}: вывод трассировки не совпадает с обычным запуском`);
+      write(traceFile, JSON.stringify(trace) + '\n');
+      codeResults[key] = {code,output:trace.output.trimEnd()};
     } else codeResults[key] = cached;
-    mini.code = code;
-    mini.blocks.forEach((block,index) => { block.output = codeResults[key].blocks[index]; });
-    write(`examples/${key}.py`, code + '\n');
+    // Число шагов нужно странице сразу: по нему задаётся высота прокрутки до загрузки шагов.
+    mini.trace = traceFile;
+    mini.steps = JSON.parse(fs.readFileSync(path.join(root, traceFile), 'utf8')).steps.length;
+    write(`examples/${key}.py`, code);
   }
 }
 for (const book of compiledBooks) {

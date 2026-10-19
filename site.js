@@ -213,33 +213,111 @@ function showOfficialIndex(root,bookId) {
   });
   root.append(list);
 }
-function miniDemo(example) {
-  const mini=example.miniDemo,demo=el('section','mini-demo');demo.id='mini';
-  demo.append(el('h3',null,'Мини-версия на числах'),el('p',null,mini.intro));
-  const scale=el('table','mini-scale'),head=el('tr');['','В книге','Здесь'].forEach(text=>head.append(el('th',null,text)));scale.append(head);
+// Мини-версия по шагам: прокрутка страницы двигает выполнение программы.
+// Шаги записаны при сборке настоящим запуском Python (scripts/trace-python.py).
+const TRACE_STEP_PX=100;
+function pyLine(text) {
+  const span=el('span','trace-src'),re=/(#.*$)|(f?"[^"]*"|'[^']*')|\b(import|def|return|for|in)\b|(\b\d+(?:\.\d+)?(?:e-?\d+)?\b)/g;
+  let last=0,m;
+  while((m=re.exec(text))){span.append(text.slice(last,m.index),el('span',m[1]?'tk-com':m[2]?'tk-str':m[3]?'tk-kw':'tk-num',m[0]));last=re.lastIndex;}
+  span.append(text.slice(last));return span;
+}
+function traceDemo(example) {
+  const mini=example.miniDemo,key='mini-'+example.id,section=el('section','trace');section.id='mini';
+  section.append(el('h2',null,'Разбор на числах: программа по шагам'),el('p','trace-intro',mini.intro));
+  const actions=el('div','code-actions'),copy=el('button',null,'Копировать код');copy.type='button';
+  copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(mini.code);copy.textContent='Скопировано';}catch{copy.textContent='Выделите код ниже вручную';}});
+  const download=link('Скачать .py',urlFor('examples/'+key+'.py'));download.download=key+'.py';
+  actions.append(copy,download,el('span','code-note','Python 3, без библиотек: python '+key+'.py'));
+  const diff=el('details','trace-diff'),scale=el('table','trace-scale'),head=el('tr');
+  ['','В книге','Здесь'].forEach(text=>head.append(el('th',null,text)));scale.append(head);
   mini.scale.forEach(row=>{const tr=el('tr');row.forEach((text,i)=>tr.append(el(i?'td':'th',null,text)));scale.append(tr);});
-  const actions=el('div','code-actions'),copy=el('button',null,'Копировать весь мини-код');copy.type='button';
-  copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(mini.code);copy.textContent='Скопировано';}catch{copy.textContent='Выделите код вручную';}});
-  const download=link('Скачать .py',urlFor('examples/mini-'+example.id+'.py'));download.download='mini-'+example.id+'.py';actions.append(copy,download,el('span','code-note','Python 3 + NumPy · pip install numpy'));
-  demo.append(scale,actions,el('p','code-note',mini.rounding));
-  const toc=el('nav','mini-toc');toc.setAttribute('aria-label','Шаги мини-версии');
-  const steps=el('ol','mini-blocks');
-  mini.blocks.forEach((block,index)=>{
-    const id='mini-'+(index+1),li=el('li','mini-block');li.id=id;
-    toc.append(link((index+1)+'. '+block.title,'#'+id));
-    li.append(el('h4',null,(index+1)+'. '+block.title));
-    const part=(label,text,className)=>{const wrap=el('div','mini-part');wrap.append(el('span','mini-label',label));const pre=el('pre',className);pre.append(el('code',null,text));wrap.append(pre);return wrap;};
-    li.append(part('В книге',block.book,'mini-book'),part('Мини-код',block.code,'mini-code'));
-    if(block.output)li.append(part('Вывод',block.output,'python-output'));
-    const calc=el('div','mini-calc');calc.append(el('span','mini-label','Как считается'));
-    block.math.forEach(line=>{const row=el('div','mini-line'),math=el('div','mini-math');tex(math,line.latex,true);row.append(math);if(line.comment)row.append(el('p','code-note',line.comment));calc.append(row);});
-    if(block.note)calc.append(el('p','mini-note',block.note));
-    if(block.formulas){const refs=el('p','mini-formulas','Формула подробно: ');block.formulas.forEach((fid,i)=>{const f=CATALOG.formulas.find(item=>item.id===canonicalId(fid));if(i)refs.append(' · ');refs.append(link(f.name,wikiUrl(fid)));});calc.append(refs);}
-    li.append(calc);steps.append(li);
+  diff.append(el('summary',null,'Чем отличается от книги'),scale);
+  const track=el('div','trace-track'),stage=el('div','trace-stage');
+  track.style.setProperty('--trace-span',(mini.steps-1)*TRACE_STEP_PX+'px');
+  stage.append(el('p','trace-loading','Загружаю шаги…'));track.append(stage);
+  const all=el('details','trace-all'),pre=el('pre'),output=el('pre','python-output');
+  pre.append(el('code',null,mini.code));output.append(el('code',null,CATALOG.python[key].output));
+  all.append(el('summary',null,'Весь код и полный вывод'),pre,output);
+  section.append(actions,diff,track,all);
+  fetch(urlFor(mini.trace)).then(r=>{if(!r.ok)throw Error(r.status);return r.json();})
+    .then(trace=>traceViewer(stage,track,mini.code,trace))
+    .catch(()=>stage.replaceChildren(el('p','trace-loading','Не удалось загрузить шаги. Код можно скопировать и запустить у себя.')));
+  return section;
+}
+function traceViewer(stage,track,code,trace) {
+  const steps=trace.steps,N=steps.length,src=code.replace(/\n$/,'').split('\n'),out=trace.output.replace(/\n$/,'').split('\n');
+  let section='';const book=src.map(line=>{const m=line.match(/^\s*# книга: (.*)$/);if(m)section=m[1];return section;});
+  const shown=(s,names)=>names.map(n=>n+' = '+s.v[n]).join(',  ');
+  // Подпись у строки: что она присвоила, что вернула или что напечатала.
+  const notes=steps.map((s,k)=>{
+    if(s.call)return 'вызов: '+shown(s,s.c);
+    if(s.r!==undefined)return 'вернула '+s.r;
+    if(s.x)return 'цикл окончен';
+    const names=[...new Set([...s.t,...s.c])].filter(n=>n in s.v),before=k?steps[k-1].o:0;
+    if(names.length)return shown(s,names);
+    return s.o>before ? 'напечатала: '+out.slice(before,s.o).join(' | ').trim() : '';
   });
-  demo.append(toc,steps);
-  const all=el('details','mini-all');all.append(el('summary',null,'Весь мини-код одним файлом'));const pre=el('pre');pre.append(el('code',null,mini.code));all.append(pre);demo.append(all);
-  return demo;
+  const globalsAt=[];steps.forEach((s,k)=>{globalsAt[k]=s.f ? globalsAt[k-1] : s.v;});
+  const bar=el('div','trace-bar'),prev=el('button',null,'◀'),next=el('button',null,'▶'),range=el('input'),counter=el('span','trace-counter'),where=el('span','trace-where');
+  prev.type=next.type='button';prev.setAttribute('aria-label','Предыдущий шаг');next.setAttribute('aria-label','Следующий шаг');
+  range.type='range';range.min=0;range.max=N-1;range.step=1;range.setAttribute('aria-label','Шаг выполнения');
+  bar.append(prev,next,range,counter,where);
+  const box=(title,cls)=>{const wrap=el('div','trace-box '+cls),body=el('div','trace-body');wrap.append(el('p','trace-label',title),body);return [wrap,body];};
+  const [codeBox,codeBody]=box('Код · подсвечена строка, которая только что выполнилась','trace-code');
+  const [varsBox,varsBody]=box('Переменные после этой строки','trace-vars');
+  const [logBox,logBody]=box('Вывод программы (print)','trace-log');
+  const rows=src.map((text,i)=>{const row=el('div','trace-line');row.append(el('span','trace-num',String(i+1)),pyLine(text),el('span','trace-val'));codeBody.append(row);return row;});
+  const grid=el('div','trace-grid');grid.append(codeBox,varsBox,logBox);
+  stage.replaceChildren(bar,grid);
+  const reveal=(pane,node,center)=>{if(!node)return;const top=node.offsetTop,bottom=top+node.offsetHeight;
+    if(center)pane.scrollTop=top-(pane.clientHeight-node.offsetHeight)/2;
+    else if(top<pane.scrollTop||bottom>pane.scrollTop+pane.clientHeight)pane.scrollTop=top-8;};
+  const group=(title,vars,changed)=>{const g=el('div','trace-group');if(title)g.append(el('p','trace-sub',title));
+    const names=Object.keys(vars);if(!names.length)g.append(el('p','trace-empty','пока пусто'));
+    names.forEach(name=>{const row=el('div','trace-var'+(changed.includes(name)?' is-changed':''));row.append(el('span','trace-name',name),el('span','trace-value',vars[name]));g.append(row);});
+    varsBody.append(g);};
+  let current=-1;
+  function render(k) {
+    if(k===current)return;current=k;const s=steps[k];
+    // Проигрываем шаги до k: на новой итерации или вызове подписи тела стираются.
+    const notesNow=new Map(),callers=[];
+    for(let j=0;j<=k;j++){
+      const t=steps[j],body=trace.bodies[t.l[0]];
+      if(body&&!t.x&&(t.call||t.t.length))for(let n=body[0];n<=body[1];n++)notesNow.delete(n);
+      if(t.call)callers.push(t.call);
+      if(t.r!==undefined&&j<k)callers.pop();
+      notesNow.set(t.l[0],notes[j]);
+    }
+    const caller=s.f ? callers[callers.length-1] : 0;
+    rows.forEach((row,i)=>{const n=i+1;
+      row.classList.toggle('is-current',n>=s.l[0]&&n<=s.l[1]);row.classList.toggle('is-caller',n===caller);
+      row.lastChild.textContent=notesNow.get(n)||'';row.lastChild.classList.toggle('is-fresh',n===s.l[0]);});
+    reveal(codeBody,rows[s.l[0]-1],true);
+    varsBody.replaceChildren();
+    if(s.f){group('внутри '+s.f+'()',s.v,s.c);group('глобальные',globalsAt[k],[]);}else group('',s.v,s.c);
+    reveal(varsBody,varsBody.querySelector('.is-changed'));
+    const before=k?steps[k-1].o:0;logBody.replaceChildren();
+    if(!s.o)logBody.append(el('p','trace-empty','пока ничего не напечатано'));
+    out.slice(0,s.o).forEach((line,i)=>logBody.append(el('div','trace-out'+(i>=before?' is-new':''),line||' ')));
+    logBody.scrollTop=logBody.scrollHeight;
+    range.value=k;counter.textContent='Шаг '+(k+1)+' из '+N;
+    where.textContent='книга: '+(book[s.l[0]-1]||'—')+(s.f ? '  ·  внутри '+s.f+'(), вызов из строки '+caller : '');
+  }
+  const fromScroll=()=>Math.min(N-1,Math.max(0,Math.round(-track.getBoundingClientRect().top/TRACE_STEP_PX)));
+  const go=k=>{k=Math.min(N-1,Math.max(0,k));scrollTo({top:scrollY+track.getBoundingClientRect().top+k*TRACE_STEP_PX,behavior:'instant'});render(k);};
+  let pending=false;
+  const onScroll=()=>{if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;render(fromScroll());});};
+  addEventListener('scroll',onScroll,{passive:true});addEventListener('resize',()=>{current=-1;onScroll();});
+  range.addEventListener('input',()=>go(Number(range.value)));
+  prev.addEventListener('click',()=>go(current-1));next.addEventListener('click',()=>go(current+1));
+  // ← → листают шаги, пока экран разбора занимает середину окна.
+  addEventListener('keydown',e=>{
+    if(e.altKey||e.ctrlKey||e.metaKey||e.target.closest?.('input,textarea,select'))return;
+    const rect=track.getBoundingClientRect();if(rect.top>innerHeight/2||rect.bottom<innerHeight/2)return;
+    if(e.key==='ArrowRight'){e.preventDefault();go(current+1);}else if(e.key==='ArrowLeft'){e.preventDefault();go(current-1);}
+  });
+  render(fromScroll());
 }
 // Темы конспекта, связанные с примером: та же глава или общая формула.
 function unitsForExample(example) {
@@ -278,12 +356,9 @@ function showOfficialExample(root,bookId,exampleId) {
   const copy=el('button',null,'Копировать код');copy.type='button';copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(example.code);copy.textContent='Скопировано';}catch{copy.textContent='Выделите код вручную';}});
   const download=link('Скачать .py',urlFor('examples/packt-'+example.id+'.py'));download.download='packt-'+example.id+'.py';
   actions.append(copy,download);panel.append(actions);
-  if(example.miniDemo){
-    const demo=miniDemo(example),toggle=el('button','mini-toggle','▶ Разобрать на числах');toggle.type='button';toggle.setAttribute('aria-expanded','false');
-    const setOpen=open=>{demo.hidden=!open;toggle.textContent=open?'▼ Скрыть разбор':'▶ Разобрать на числах';toggle.setAttribute('aria-expanded',String(open));};
-    toggle.addEventListener('click',()=>setOpen(demo.hidden));actions.append(toggle);panel.append(demo);setOpen(/^#mini(-[0-9]+)?$/.test(location.hash));
-  }
+  if(example.miniDemo)actions.append(link('↓ Разобрать на числах по шагам','#mini','mini-toggle'));
   const pre=el('pre');pre.append(el('code',null,example.code));panel.append(pre);root.append(panel);
+  if(example.miniDemo)root.append(traceDemo(example));
   const walkthrough=el('section','code-walkthrough');walkthrough.append(el('h2',null,'Разбираем по шагам'));
   const steps=el('ol');example.walkthrough.forEach(step=>steps.append(el('li',null,step)));walkthrough.append(steps);root.append(walkthrough);
   const related=el('section','related-formulas');related.append(el('h2',null,'Математическая основа в Formula Wiki'));
