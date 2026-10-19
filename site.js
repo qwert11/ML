@@ -366,8 +366,16 @@ function traceViewer(stage,track,code,trace,key) {
     buttons.continue.disabled=buttons.over.disabled=buttons.into.disabled=k===N-1;
     buttons.out.disabled=!depth[k];
     where.textContent='книга: '+(book[s.l[0]-1]||'—')+(s.f ? '  ·  внутри '+s.f+'(), вызов из строки '+caller : '');
-    [codeBody,mathBody,logBody,varsBody].forEach(b=>b.classList.toggle('can-scroll',b.scrollHeight>b.clientHeight+1));
   }
+  // Колесо не застревает в панелях. Над кодом оно всегда листает шаги: код и так следит за строкой,
+  // а оглядеться можно полосой прокрутки. Остальные панели сначала листаются сами, а упёршись в край,
+  // сразу отдают колесо странице — без паузы, которую браузер делает между вложенными прокрутками.
+  grid.addEventListener('wheel',e=>{
+    if(e.ctrlKey||Math.abs(e.deltaX)>Math.abs(e.deltaY))return;
+    const dy=e.deltaY*(e.deltaMode===1 ? 40 : e.deltaMode===2 ? innerHeight : 1),pane=e.target.closest('.trace-body');
+    if(pane&&pane!==codeBody&&(dy>0 ? pane.scrollHeight-pane.clientHeight-pane.scrollTop : pane.scrollTop)>1)return;
+    e.preventDefault();scrollBy({top:dy,behavior:'instant'});
+  },{passive:false});
   const fromScroll=()=>Math.min(N-1,Math.max(0,Math.round(-track.getBoundingClientRect().top/TRACE_STEP_PX)));
   const go=k=>{k=Math.min(N-1,Math.max(0,k));scrollTo({top:scrollY+track.getBoundingClientRect().top+k*TRACE_STEP_PX,behavior:'instant'});render(k);};
   let pending=false;
