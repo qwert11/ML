@@ -18,18 +18,17 @@ const LSTM = [
   ['c', 'c_t = f_t \\odot c_{t-1} + i_t \\odot \\tilde c_t'],
   ['h', 'h_t = o_t \\odot \\tanh(c_t)']
 ];
-const OUT = [
-  ['p', 'p_k = \\sigma(w\\,h^{(k)} + b)'],
-  ['L', 'L = -\\frac1N\\sum_k \\big[y_k \\ln p_k + (1-y_k)\\ln(1-p_k)\\big]']
-];
+// Порядок как внутри model.fit: прямой проход, метрика, ошибка, градиент, шаг rmsprop.
 const TRAIN = [
+  ['p', 'p_k = \\sigma(w\\,h^{(k)} + b)'],
+  ['acc', '\\mathrm{acc} = \\frac1N\\sum_k \\big[\\,[p_k > 0{.}5] = y_k\\,\\big]'],
+  ['L', 'L = -\\frac1N\\sum_k \\big[y_k \\ln p_k + (1-y_k)\\ln(1-p_k)\\big]'],
   ['g_w', 'g_w = \\frac{\\partial L}{\\partial w} = \\frac1N\\sum_k (p_k - y_k)\\,h^{(k)}'],
   ['g_b', 'g_b = \\frac{\\partial L}{\\partial b} = \\frac1N\\sum_k (p_k - y_k)'],
   ['v_w', 'v_w \\leftarrow \\rho\\,v_w + (1-\\rho)\\,g_w^2'],
   ['v_b', 'v_b \\leftarrow \\rho\\,v_b + (1-\\rho)\\,g_b^2'],
-  ['w', 'w \\leftarrow w - \\eta\\,\\frac{g_w}{\\sqrt{v_w} + \\varepsilon}'],
-  ['b', 'b \\leftarrow b - \\eta\\,\\frac{g_b}{\\sqrt{v_b} + \\varepsilon}'],
-  ...OUT
+  ['w', 'w \\leftarrow w - \\eta\\,\\frac{g_w}{\\sqrt{v_w + \\varepsilon}}'],
+  ['b', 'b \\leftarrow b - \\eta\\,\\frac{g_b}{\\sqrt{v_b + \\varepsilon}}']
 ];
 const table = (cols, rows) => `\\begin{array}{r|${'r'.repeat(cols.length)}} & ${cols.join(' & ')}\\\\ \\hline ${rows.map(([name, vals]) => `${name} & ${vals.map(N).join(' & ')}`).join('\\\\')}\\end{array}`;
 const GATE_COLS = ['i', 'f', '\\tilde c', 'o'];
@@ -40,15 +39,15 @@ module.exports = function addMath(steps, code) {
   const src = code.split('\n');
   let G = {}, review = 0, sentence = '', t = 0, epoch = 0, cell = {};
   const S = { H: [] };       // показанные значения: из них считаются следующие формулы
-  let train = {}, out = {};  // значения уже посчитанных строк текущей системы
+  let train = {};            // значения уже посчитанных строк текущей системы
   const check = (what, actual, computed) => {
     if (py4(actual) !== py4(computed)) throw Error(`Формула ${what}: по показанным числам ${computed}, в программе ${actual}`);
     return R(computed);
   };
   const system = (rows, vals, cur) => rows.map(([key, tex]) => ({ t: tex + (vals[key] || ''), s: cur.includes(key) ? 'cur' : vals[key] ? 'done' : 'todo' }));
-  const lstmTitle = () => `LSTM-ячейка · отзыв ${review} «${sentence}»` + (t ? ` · t = ${t}, слово «${cell.word}»` : '');
+  const lstmTitle = () => `model.fit → LSTM · отзыв ${review} «${sentence}»` + (t ? ` · t = ${t}, слово «${cell.word}»` : '');
   const lstm = (cur, extra) => ({ title: lstmTitle(), rows: system(LSTM, cell.vals || {}, cur), ...extra });
-  const trainOrOut = () => epoch ? [TRAIN, train, `Обучение · эпоха ${epoch}`] : [OUT, out, 'Выход сети и ошибка'];
+  const epochTitle = () => `model.fit · эпоха ${epoch}`;
 
   function math(line, s, v, g) {
     const at = prefix => line.startsWith(prefix);
@@ -69,7 +68,7 @@ module.exports = function addMath(steps, code) {
     }
     if (at('h, c = 0.0')) { S.h = 0; S.c = 0; return lstm([], { sub: 'h_0 = 0,\\quad c_0 = 0', cap: 'Перед первым словом памяти нет.' }); }
     if (at('for idx')) {
-      if (s.x) return { title: `Выход LSTM · отзыв ${review}`, rows: [{ t: `h_T = h_${t} = ${N(S.h)}`, s: 'cur' }],
+      if (s.x) return { title: `model.fit → выход LSTM · отзыв ${review}`, rows: [{ t: `h_T = h_${t} = ${N(S.h)}`, s: 'cur' }],
         cap: 'Слова кончились. Классификатор получит только последний выход h_T.' };
       t++; const idx = v.idx, x = g.E[idx];
       cell = { word: g.words[idx], x, vals: { x: ` = ${pair(x)}` } };
@@ -121,36 +120,50 @@ module.exports = function addMath(steps, code) {
     if (at('print(f"{words')) return lstm([]);
     if (at('H.append')) {
       S.H.push(S.h);
-      return { title: 'Выход LSTM', rows: [{ t: `h^{(${review})} = h_T = ${N(S.h)}`, s: 'cur' }],
+      return { title: 'model.fit → выход LSTM', rows: [{ t: `h^{(${review})} = h_T = ${N(S.h)}`, s: 'cur' }],
         sub: `H = (${S.H.map(N).join(',\\ ')})`, cap: 'По одному числу на отзыв — всё, что увидит классификатор.' };
     }
-    if (at('w_d, b_d = ')) { S.w = v.w_d; S.b = v.b_d; return { title: 'Выход сети и ошибка', rows: system(OUT, out, []), sub: `w = ${N(S.w)},\\quad b = ${N(S.b)}`, cap: 'Веса слоя Dense(1): один вес на h и смещение.' }; }
+    if (at('w_d, b_d = ')) { S.w = v.w_d; S.b = v.b_d; return { title: 'Dense: параметры', rows: system([TRAIN[0]], {}, []), sub: `w = ${N(S.w)},\\quad b = ${N(S.b)}`, cap: 'Веса слоя Dense(1): один вес на h и смещение. Считать по ним будем внутри fit.' }; }
+    if (at('lr, rho, eps = ')) {
+      S.lr = v.lr; S.rho = v.rho; S.eps = v.eps;
+      return { title: 'compile: параметры rmsprop', rows: system(TRAIN.slice(5), {}, ['v_w', 'v_b', 'w', 'b']), sub: `\\eta = ${N(S.lr)},\\quad \\rho = ${N(S.rho)},\\quad \\varepsilon = 10^{-7}`,
+        cap: 'optimizer="rmsprop" — это ровно эти числа, значения Keras по умолчанию. Сами формулы сработают в каждой эпохе fit.' };
+    }
     if (at('p = [sigmoid')) {
-      const [rows, vals, title] = trainOrOut(), sub = [];
+      const sub = [];
       S.p = S.H.map((h, k) => {
         const z = R(S.w * h + S.b), val = check(`p_${k + 1}`, v.p[k], 1 / (1 + R(Math.exp(-z))));
         sub.push(`p_${k + 1} &= \\sigma(${N(S.w)}\\cdot ${M(h)} + ${M(S.b)}) = ${sigma(z, val)}`);
         return val;
       });
-      vals.p = ` = (${S.p.map(N).join(',\\ ')})`;
-      return { title, rows: system(rows, vals, ['p']), sub: aligned(sub), cap: 'Dense + sigmoid: вероятность того, что отзыв позитивный.', w: ['sigmoid'] };
+      train.p = ` = (${S.p.map(N).join(',\\ ')})`;
+      return { title: epochTitle(), rows: system(TRAIN, train, ['p']), sub: aligned(sub), cap: 'Прямой проход до конца: Dense + sigmoid дают вероятность того, что отзыв позитивный.', w: ['sigmoid'] };
+    }
+    if (at('acc = ')) {
+      const y = g.labels, n = S.p.length, guess = S.p.map(p => p > 0.5 ? 1 : 0), hits = guess.filter((q, k) => q === y[k]).length;
+      const val = check('acc', v.acc, hits / n); train.acc = ` = ${N(val)}`;
+      const sub = S.p.map((p, k) => `p_${k + 1} = ${N(p)} ${guess[k] ? '>' : '\\le'} 0{.}5 &\\Rightarrow ${guess[k]}\\ ${guess[k] === y[k] ? '=' : '\\ne'}\\ y_${k + 1} = ${y[k]}\\ ${guess[k] === y[k] ? '\\checkmark' : '\\times'}`);
+      sub.push(`\\mathrm{acc} &= \\tfrac{${hits}}{${n}} = ${N(val)}`);
+      return { title: epochTitle(), rows: system(TRAIN, train, ['acc']), sub: aligned(sub),
+        cap: 'metrics=["acc"]: доля отзывов, угаданных при пороге 0.5. На обучение не влияет — Keras её только печатает.' };
     }
     if (at('loss = bce')) {
-      const [rows, vals, title] = trainOrOut(), y = g.labels, n = S.p.length;
+      const y = g.labels, n = S.p.length;
       const full = S.p.map((p, k) => `${y[k]}\\cdot\\ln ${N(p)} + ${1 - y[k]}\\cdot\\ln(1-${N(p)})`).join(' + ');
       const kept = S.p.map((p, k) => y[k] ? `\\ln ${N(p)}` : `\\ln ${N(R(1 - p))}`);
       const logs = S.p.map((p, k) => R(Math.log(y[k] ? p : R(1 - p))));
-      S.L = check('L', v.loss, -logs.reduce((a, b) => a + b) / n); vals.L = ` = ${N(S.L)}`;
-      return { title, rows: system(rows, vals, ['L']), w: ['logistic-cost'],
+      S.L = check('L', v.loss, -logs.reduce((a, b) => a + b) / n); train.L = ` = ${N(S.L)}`;
+      return { title: epochTitle(), rows: system(TRAIN, train, ['L']), w: ['logistic-cost'],
         sub: aligned([`L &= -\\tfrac1${n}\\big[${full}\\big]`, `&= -\\tfrac1${n}\\big[${kept.join(' + ')}\\big] = -\\tfrac1${n}\\big[${logs.map(M).join(' + ')}\\big] = ${N(S.L)}`]),
-        cap: `y = 1 оставляет ln p, y = 0 — ln(1 − p). N = ${n}: оба отзыва в одном батче.` };
+        cap: `y = 1 оставляет ln p, y = 0 — ln(1 − p). N = ${n}: оба отзыва в одном батче. Это число Keras печатает как loss эпохи — оно посчитано до шага обучения.` };
     }
-    if (at('print(f"p=') || at('print(f"epoch')) { const [rows, vals, title] = trainOrOut(); return { title, rows: system(rows, vals, []) }; }
-    if (at('v_w = v_b = ')) { S.v_w = 0; S.v_b = 0; return { title: 'Обучение', rows: system(TRAIN, {}, []), sub: 'v_w = v_b = 0', cap: 'RMSprop копит средний квадрат градиента; в начале он нулевой.' }; }
+    if (at('print(f"Epoch')) return { title: epochTitle(), rows: system(TRAIN, train, []), cap: 'Та же строка, что печатает Keras: acc и loss этой эпохи.' };
+    if (at('print(f"Dense')) return { title: 'После fit', rows: [{ t: `w = ${N(S.w)},\\quad b = ${N(S.b)}`, s: 'cur' }], cap: 'Веса Dense после трёх эпох — те же, что выдаёт Keras.' };
+    if (at('v_w = v_b = ')) { S.v_w = 0; S.v_b = 0; return { title: 'model.fit · перед эпохами', rows: system(TRAIN, {}, []), sub: 'v_w = v_b = 0', cap: 'RMSprop копит средний квадрат градиента; в начале он нулевой.' }; }
     if (at('for epoch')) {
       if (s.x) return null;
       epoch = v.epoch; train = {};
-      return { title: `Обучение · эпоха ${epoch}`, rows: system(TRAIN, train, []), cap: 'Один шаг обучения на всём батче. Обучаем только Dense; веса LSTM в книге меняются так же, через цепное правило.' };
+      return { title: epochTitle(), rows: system(TRAIN, train, []), cap: 'Эпоха = прямой проход, ошибка, градиент и один шаг rmsprop на всём батче. Обучаем только Dense; в книге веса Embedding и LSTM меняются так же, через цепное правило.' };
     }
     if (at('g_w = ') || at('g_b = ')) {
       const w = at('g_w'), y = g.labels, n = S.p.length, d = S.p.map((p, k) => R(p - y[k]));
@@ -158,23 +171,23 @@ module.exports = function addMath(steps, code) {
       const val = check(w ? 'g_w' : 'g_b', w ? v.g_w : v.g_b, parts.reduce((a, b) => a + b) / n);
       S[w ? 'g_w' : 'g_b'] = val; train[w ? 'g_w' : 'g_b'] = ` = ${N(val)}`;
       const terms = S.p.map((p, k) => `(${N(p)} - ${y[k]})` + (w ? `\\cdot ${M(S.H[k])}` : '')).join(' + ');
-      return { title: `Обучение · эпоха ${epoch}`, rows: system(TRAIN, train, [w ? 'g_w' : 'g_b']), w: ['logistic-gradient-component'],
+      return { title: epochTitle(), rows: system(TRAIN, train, [w ? 'g_w' : 'g_b']), w: ['logistic-gradient-component'],
         sub: aligned([`g_${w ? 'w' : 'b'} &= \\tfrac1${n}\\big[${terms}\\big]`, `&= \\tfrac1${n}\\big[${parts.map(M).join(' + ')}\\big] = ${N(val)}`]),
         cap: w ? 'Для пары sigmoid + кросс-энтропия производная по z равна p − y; по w — ещё умножить на вход h.' : 'То же для смещения: его «вход» равен 1.' };
     }
-    if (at('v_w = 0.9') || at('v_b = 0.9')) {
-      const k = at('v_w') ? 'w' : 'b', gk = S['g_' + k], prev = S['v_' + k], g2 = R(gk * gk);
-      const val = check('v_' + k, v['v_' + k], 0.9 * prev + 0.1 * g2); S['v_' + k] = val; train['v_' + k] = ` = ${N(val)}`;
-      return { title: `Обучение · эпоха ${epoch}`, rows: system(TRAIN, train, ['v_' + k]),
-        sub: `v_${k} = 0.9\\cdot ${N(prev)} + 0.1\\cdot ${M(gk)}^2 = 0.9\\cdot ${N(prev)} + 0.1\\cdot ${N(g2)} = ${N(val)}`, cap: 'ρ = 0.9 — параметр rmsprop по умолчанию.' };
+    if (at('v_w = rho') || at('v_b = rho')) {
+      const k = at('v_w') ? 'w' : 'b', gk = S['g_' + k], prev = S['v_' + k], g2 = R(gk * gk), rho = S.rho, rest = R(1 - rho);
+      const val = check('v_' + k, v['v_' + k], rho * prev + rest * g2); S['v_' + k] = val; train['v_' + k] = ` = ${N(val)}`;
+      return { title: epochTitle(), rows: system(TRAIN, train, ['v_' + k]),
+        sub: `v_${k} = ${N(rho)}\\cdot ${N(prev)} + ${N(rest)}\\cdot ${M(gk)}^2 = ${N(rho)}\\cdot ${N(prev)} + ${N(rest)}\\cdot ${N(g2)} = ${N(val)}`, cap: 'ρ = 0.9 — параметр rmsprop по умолчанию.' };
     }
     if (at('w_d -= ') || at('b_d -= ')) {
       const k = at('w_d') ? 'w' : 'b', old = S[k], gk = S['g_' + k], vk = S['v_' + k];
-      const sq = R(Math.sqrt(vk)), ratio = R(gk / (sq + 1e-7));
-      const val = check(k, v[k + '_d'], old - 0.001 * ratio); S[k] = val; train[k] = ` = ${N(val)}`;
-      return { title: `Обучение · эпоха ${epoch}`, rows: system(TRAIN, train, [k]),
-        sub: aligned([`${k} &= ${N(old)} - 0.001\\cdot\\frac{${N(gk)}}{\\sqrt{${N(vk)}} + 10^{-7}} = ${N(old)} - 0.001\\cdot\\frac{${N(gk)}}{${N(sq)} + 10^{-7}}`, `&= ${N(old)} - 0.001\\cdot ${M(ratio)} = ${N(val)}`]),
-        cap: 'η = 0.001, ε = 10⁻⁷. Градиент делится на свой средний размер, поэтому шаг ≈ η при любой величине g.' };
+      const sq = R(Math.sqrt(vk + S.eps)), ratio = R(gk / sq), lr = N(S.lr);
+      const val = check(k, v[k + '_d'], old - S.lr * ratio); S[k] = val; train[k] = ` = ${N(val)}`;
+      return { title: epochTitle(), rows: system(TRAIN, train, [k]),
+        sub: aligned([`${k} &= ${N(old)} - ${lr}\\cdot\\frac{${M(gk)}}{\\sqrt{${N(vk)} + 10^{-7}}} = ${N(old)} - ${lr}\\cdot\\frac{${M(gk)}}{${N(sq)}}`, `&= ${N(old)} - ${lr}\\cdot ${M(ratio)} = ${N(val)}`]),
+        cap: 'η = 0.001, ε = 10⁻⁷ — как в Keras 3, ε стоит под корнем. Градиент делится на свой средний размер, поэтому шаг ≈ η при любой величине g.' };
     }
     return null;
   }

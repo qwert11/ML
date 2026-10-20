@@ -221,9 +221,42 @@ function pyLine(text) {
   while((m=re.exec(text))){span.append(text.slice(last,m.index),el('span',m[1]?'tk-com':m[2]?'tk-str':m[3]?'tk-kw':'tk-num',m[0]));last=re.lastIndex;}
   span.append(text.slice(last));return span;
 }
+// Сокращённый оригинал: код Packt на данных и весах разбора; вывод снят настоящим запуском Keras.
+function shortDemo(example) {
+  const short=example.miniDemo.keras,key='short-'+example.id,section=el('section','python-panel official-code short-code');section.id='short';
+  section.append(el('h2',null,'Сокращённый оригинал: тот же код Keras на двух отзывах'),el('p','short-intro',short.intro));
+  const actions=el('div','code-actions'),copy=el('button',null,'Копировать код');copy.type='button';
+  copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(short.code);copy.textContent='Скопировано';}catch{copy.textContent='Выделите код ниже вручную';}});
+  const download=link('Скачать .py',urlFor('examples/'+key+'.py'));download.download=key+'.py';
+  actions.append(copy,download,link('↓ Он же по шагам, без Keras','#mini','mini-toggle'),el('span','code-note',short.run));
+  const pre=el('pre'),output=el('pre','python-output');pre.append(el('code',null,short.code));output.append(el('code',null,short.output));
+  section.append(actions,pre,el('p','code-note short-checked',short.checked),output);
+  return section;
+}
+// Карта «строка Keras → строки разбора» по пометкам мини-кода: «# ── N. блок ──» и «# Keras: …».
+// Пометка действует до следующей пометки или заголовка блока.
+function kerasMap(code) {
+  const lines=code.replace(/\n$/,'').split('\n'),cuts=[],marks=[];let block='';
+  lines.forEach((line,i)=>{
+    const head=line.match(/^# ── (\d+\. .+?) ─+$/),mark=line.match(/^\s*# Keras: (.*)$/);
+    if(head){block=head[1];cuts.push(i+1);}
+    if(mark){marks.push({block,keras:mark[1],from:i+1});cuts.push(i+1);}
+  });
+  marks.forEach(m=>{let to=(cuts.find(n=>n>m.from)||lines.length+1)-1;while(to>m.from&&!lines[to-1].trim())to--;m.to=to;});
+  return marks;
+}
 function traceDemo(example) {
   const mini=example.miniDemo,key='mini-'+example.id,section=el('section','trace');section.id='mini';
   section.append(el('h2',null,'Разбор на числах: программа по шагам'),el('p','trace-intro',mini.intro));
+  const map=el('table','trace-scale trace-map'),mapHead=el('tr');
+  ['Блок','Что повторяет из Keras','Где в разборе'].forEach(text=>mapHead.append(el('th',null,text)));map.append(mapHead);
+  let lastBlock='';
+  kerasMap(mini.code).forEach(m=>{
+    const tr=el('tr'),jump=el('button','trace-jump','строки '+m.from+'–'+m.to+' →');jump.type='button';jump.title='Перейти к первому шагу этих строк';
+    jump.addEventListener('click',()=>{track.jumpTo?.(m.from,m.to);track.scrollIntoView({behavior:'smooth',block:'start'});});
+    const td=el('td');td.append(jump);
+    tr.append(el('th',null,m.block===lastBlock ? '' : m.block),el('td','trace-map-keras',m.keras),td);map.append(tr);lastBlock=m.block;
+  });
   const actions=el('div','code-actions'),copy=el('button',null,'Копировать код');copy.type='button';
   copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(mini.code);copy.textContent='Скопировано';}catch{copy.textContent='Выделите код ниже вручную';}});
   const download=link('Скачать .py',urlFor('examples/'+key+'.py'));download.download=key+'.py';
@@ -237,7 +270,8 @@ function traceDemo(example) {
   const all=el('details','trace-all'),pre=el('pre'),output=el('pre','python-output');
   pre.append(el('code',null,mini.code));output.append(el('code',null,CATALOG.python[key].output));
   all.append(el('summary',null,'Весь код и полный вывод'),pre,output);
-  section.append(actions,diff,track,all);
+  const mapWrap=el('div','trace-map-wrap');mapWrap.append(el('p','trace-map-title','Где в разборе каждая строка сокращённого оригинала'),map);
+  section.append(mapWrap,actions,diff,track,all);
   fetch(urlFor(mini.trace)).then(r=>{if(!r.ok)throw Error(r.status);return r.json();})
     .then(trace=>traceViewer(stage,track,mini.code,trace,key))
     .catch(()=>stage.replaceChildren(el('p','trace-loading','Не удалось загрузить шаги. Код можно скопировать и запустить у себя.')));
@@ -262,7 +296,8 @@ const DEBUG_BUTTONS=[
 ];
 function traceViewer(stage,track,code,trace,key) {
   const steps=trace.steps,N=steps.length,src=code.replace(/\n$/,'').split('\n'),out=trace.output.replace(/\n$/,'').split('\n');
-  let section='';const book=src.map(line=>{const m=line.match(/^\s*# книга: (.*)$/);if(m)section=m[1];return section;});
+  // Над кодом — строка Keras, которую повторяет текущий шаг: последняя пометка «# Keras: …» выше него.
+  let section='';const keras=src.map(line=>{const m=line.match(/^\s*# Keras: (.*)$/);if(m)section=m[1];return section;});
   const shown=(s,names)=>names.map(n=>n+' = '+s.v[n]).join(',  ');
   // Подпись у строки: что она присвоила, что вернула или что напечатала.
   const notes=steps.map((s,k)=>{
@@ -362,9 +397,11 @@ function traceViewer(stage,track,code,trace,key) {
     buttons.restart.disabled=buttons.back.disabled=k===0;
     buttons.continue.disabled=buttons.over.disabled=buttons.into.disabled=k===N-1;
     buttons.out.disabled=!depth[k];
-    where.textContent='книга: '+(book[s.l[0]-1]||'—')+(s.f ? '  ·  внутри '+s.f+'(), вызов из строки '+caller : '');
+    where.textContent='Keras: '+(keras[s.l[0]-1]||'—')+(s.f ? '  ·  внутри '+s.f+'(), вызов из строки '+caller : '');
   }
   const go=k=>render(Math.min(N-1,Math.max(0,k)));
+  // Переход из карты над разбором: первый шаг, выполненный в этих строках.
+  track.jumpTo=(from,to)=>{const k=steps.findIndex(s=>s.l[0]>=from&&s.l[0]<=to);if(k>=0)go(k);};
   addEventListener('resize',()=>{const k=current;current=-1;render(k);});
   range.addEventListener('input',()=>go(Number(range.value)));
   // Клавиши отладчика работают, пока экран разбора занимает середину окна.
@@ -418,8 +455,10 @@ function showOfficialExample(root,bookId,exampleId) {
   const copy=el('button',null,'Копировать код');copy.type='button';copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(example.code);copy.textContent='Скопировано';}catch{copy.textContent='Выделите код вручную';}});
   const download=link('Скачать .py',urlFor('examples/packt-'+example.id+'.py'));download.download='packt-'+example.id+'.py';
   actions.append(copy,download);panel.append(actions);
+  if(example.miniDemo?.keras)actions.append(link('↓ Сокращённый оригинал','#short','mini-toggle'));
   if(example.miniDemo)actions.append(link('↓ Разобрать на числах по шагам','#mini','mini-toggle'));
   const pre=el('pre');pre.append(el('code',null,example.code));panel.append(pre);root.append(panel);
+  if(example.miniDemo?.keras)root.append(shortDemo(example));
   if(example.miniDemo)root.append(traceDemo(example));
   const walkthrough=el('section','code-walkthrough');walkthrough.append(el('h2',null,'Разбираем по шагам'));
   const steps=el('ol');example.walkthrough.forEach(step=>steps.append(el('li',null,step)));walkthrough.append(steps);root.append(walkthrough);

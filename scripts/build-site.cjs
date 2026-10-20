@@ -106,6 +106,24 @@ for (const example of officialExamples) {
     for (const step of trace.steps) for (const id of step.m?.w || []) {
       if (!formulas.has(canonical(id))) throw Error(`Unknown formula ${id} in ${key}`);
     }
+    if (mini.keras) {
+      // Сокращённый оригинал Keras сборка не запускает (нужен TensorFlow), но его снятый вывод
+      // обязан сходиться с мини-кодом: словарь, выравнивание, acc/loss эпох и итоговые веса.
+      const keras = mini.keras.output.split('\n'), ours = trace.output.split('\n');
+      const pick = (lines, re) => lines.flatMap(line => [...line.matchAll(re)].map(m => m[0]));
+      const same = (what, re) => {
+        const a = pick(keras, re).join(' | '), b = pick(ours, re).join(' | ');
+        if (!a || a !== b) throw Error(`Keras ${key}: ${what} — у Keras «${a}», в мини-коде «${b}»`);
+      };
+      same('словарь и выравнивание', /^(word2idx|train_pad): .*$/g);
+      same('acc и loss по эпохам', /acc: \d\.\d{4} - loss: \d\.\d{4}/g);
+      same('веса после обучения', /^Dense после обучения: .*$/g);
+      if (checkPython) {
+        const syntax = spawnSync('python', ['-X','utf8','-c','import ast,sys; ast.parse(sys.stdin.read())'], {input:mini.keras.code,encoding:'utf8',timeout:15000});
+        if (syntax.status !== 0) throw Error(`Keras syntax ${key}: ${syntax.stderr || syntax.error}`);
+      }
+      write(`examples/short-${example.id}.py`, attribution + '# Сокращено для сайта ML: данные и веса — как в разборе на числах\n' + mini.keras.code);
+    }
     const traceJson = JSON.stringify(trace) + '\n';
     write(traceFile, traceJson);
     codeResults[key] = {code,output:trace.output.trimEnd()};

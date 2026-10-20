@@ -85,6 +85,15 @@
 .trace-scale { border-collapse:collapse; font-size:.82rem; margin:.5rem 0; display:block; overflow-x:auto; max-width:100%; }
 .trace-scale th,.trace-scale td { padding:.3rem .7rem; border-bottom:1px solid var(--card-border); text-align:left; white-space:nowrap; }
 .trace-scale tr:first-child th { color:var(--muted); font-weight:600; }
+/* Сокращённый оригинал и карта «строка Keras → строки разбора» */
+.short-code { scroll-margin-top:1rem; }
+.short-intro { max-width:56rem; margin:0 0 .8rem; }
+.short-checked { margin:.8rem 0 0; }
+.short-code .python-output { margin-top:.4rem; }
+.trace-map-wrap { margin:.4rem 0 1rem; }
+.trace-map-title { margin:0; font-weight:650; font-size:.88rem; }
+.trace-map .trace-map-keras { font-family:var(--mono); font-size:.78rem; white-space:normal; min-width:16rem; }
+.trace-jump { background:none; border:0; padding:0; color:var(--accent); font:inherit; cursor:pointer; text-decoration:underline; text-underline-offset:2px; white-space:nowrap; }
 .trace-track { margin-top:1rem; }
 .trace-stage { height:100vh; display:flex; flex-direction:column; gap:.6rem; padding:.7rem 0; }
 @supports (height:100dvh) { .trace-stage { height:100dvh; } }
