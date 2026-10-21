@@ -102,8 +102,10 @@ for (const example of officialExamples) {
     const trace = JSON.parse(traced.stdout);
     if (trace.output !== plain.stdout.replace(/\r\n/g,'\n')) throw Error(`Trace ${key}: вывод трассировки не совпадает с обычным запуском`);
     const addMath = mini.math; delete mini.math;
-    addMath(trace.steps, code);   // сверяет каждую подстановку с программой
-    for (const step of trace.steps) for (const id of step.m?.w || []) {
+    // Сверяет каждую подстановку с программой; возвращает число шагов разбора — оно упоминается во вводке.
+    const keySteps = addMath(trace.steps, code);
+    mini.intro = mini.intro.replace('{K}', keySteps);
+    for (const step of trace.steps) for (const id of [...(step.m?.w || []), ...(step.k?.w || [])]) {
       if (!formulas.has(canonical(id))) throw Error(`Unknown formula ${id} in ${key}`);
     }
     if (mini.keras) {

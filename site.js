@@ -284,18 +284,28 @@ const DEBUG_ICONS={
   over:'<path d="M3 9.5a5 5 0 0 1 10 0"/><path d="M10.6 7.6 13 10l2.2-2.6"/><circle cx="8" cy="13" r="1.6" fill="currentColor" stroke="none"/>',
   into:'<path d="M8 1.5V9"/><path d="M5 6.2l3 3 3-3"/><circle cx="8" cy="13" r="1.6" fill="currentColor" stroke="none"/>',
   out:'<path d="M8 9.5V2"/><path d="M5 4.8l3-3 3 3"/><circle cx="8" cy="13" r="1.6" fill="currentColor" stroke="none"/>',
-  back:'<path d="M13 9.5a5 5 0 0 0-10 0"/><path d="M5.4 7.6 3 10 .8 7.4"/><circle cx="8" cy="13" r="1.6" fill="currentColor" stroke="none"/>'
+  back:'<path d="M13 9.5a5 5 0 0 0-10 0"/><path d="M5.4 7.6 3 10 .8 7.4"/><circle cx="8" cy="13" r="1.6" fill="currentColor" stroke="none"/>',
+  prev:'<path d="M12.5 8h-9"/><path d="M7 4.5 3.5 8 7 11.5"/>',
+  next:'<path d="M3.5 8h9"/><path d="M9 4.5 12.5 8 9 11.5"/>'
 };
+// По шагам разбора (слово, эпоха) — «Назад»/«Дальше»; по строкам — остальные, как в отладчике.
 const DEBUG_BUTTONS=[
   ['restart','Заново','Ctrl+Shift+F5','В начало программы'],
+  ['prev','Назад','←','Предыдущий шаг разбора'],
+  ['next','Дальше','→','Следующий шаг разбора'],
   ['continue','Продолжить','F5','До следующей точки останова (клик по номеру строки), без них — до конца'],
   ['over','Пройти','F10','Шаг с обходом: вызов функции выполняется целиком'],
-  ['into','Зайти','F11','Шаг с заходом внутрь вызываемой функции; то же — стрелка →'],
-  ['out','Выйти','Shift+F11','Доработать текущую функцию и вернуться туда, откуда её вызвали'],
-  ['back','Назад','←','Шаг назад']
+  ['into','Зайти','F11','По шагам разбора — этот же шаг по строкам, как в отладчике; по строкам — шаг с заходом внутрь функции, то же — стрелка →'],
+  ['out','Выйти','Shift+F11','Доработать текущую функцию и вернуться туда, откуда её вызвали; с верхнего уровня — обратно к шагам разбора'],
+  ['back','Назад','←','Строка назад']
 ];
 function traceViewer(stage,track,code,trace,key) {
   const steps=trace.steps,N=steps.length,src=code.replace(/\n$/,'').split('\n'),out=trace.output.replace(/\n$/,'').split('\n');
+  // Шаги разбора помечены при сборке (s.k: данные, параметры, слово, выход LSTM, эпоха, итог).
+  // Шаг разбора охватывает все строки-шаги после предыдущего до своего включительно и показывает их формулы разом.
+  const keys=[];steps.forEach((s,k)=>{if(s.k)keys.push(k);});
+  const K=keys.length,keyOf=k=>Math.max(0,keys.findIndex(j=>j>=k)),groupStart=i=>i ? keys[i-1]+1 : 0;
+  const modeKey='trace-mode';let coarse=K>1;try{if(localStorage.getItem(modeKey)==='lines')coarse=false;}catch{}
   // Над кодом — строка Keras, которую повторяет текущий шаг: последняя пометка «# Keras: …» выше него.
   let section='';const keras=src.map(line=>{const m=line.match(/^\s*# Keras: (.*)$/);if(m)section=m[1];return section;});
   const shown=(s,names)=>names.map(n=>n+' = '+s.v[n]).join(',  ');
@@ -324,34 +334,44 @@ function traceViewer(stage,track,code,trace,key) {
     out:k=>after(k,j=>depth[j]<depth[k]),
     back:k=>k-1
   };
-  const bar=el('div','trace-bar'),tools=el('div','dbg-tools'),range=el('input'),counter=el('span','trace-counter'),where=el('span','trace-where'),buttons={};
+  const bar=el('div','trace-bar'),modes=el('div','dbg-modes'),tools=el('div','dbg-tools'),range=el('input'),counter=el('span','trace-counter'),where=el('span','trace-where'),buttons={},modeBtn={};
+  [['coarse','По шагам разбора',K],['lines','По строкам',N]].forEach(([name,label,n])=>{
+    const b=el('button','dbg dbg-mode');b.type='button';b.title=name==='coarse' ? 'Шаг — слово, эпоха, параметры; формулы шага показаны целиком' : 'Шаг — одна строка программы, как в отладчике';
+    b.append(label,el('span','dbg-count',String(n)));
+    // Обратно к строкам — на ту строку, где были до перехода к шагам, если она внутри текущего шага.
+    b.addEventListener('click',()=>{if(coarse===(name==='coarse'))return;
+      setMode(name==='coarse',coarse ? (lineAt>=groupStart(ki)&&lineAt<=keys[ki] ? lineAt : groupStart(ki)) : current);});modeBtn[name]=b;modes.append(b);
+  });
   DEBUG_BUTTONS.forEach(([name,label,keys,title])=>{
     const b=el('button','dbg dbg-'+name);b.type='button';b.title=title+' — '+keys;b.setAttribute('aria-label',label+'. '+title);
     b.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true">'+DEBUG_ICONS[name]+'</svg>';b.append(el('span','dbg-label',label),el('kbd',null,keys));
-    b.addEventListener('click',()=>go(target[name](current)));buttons[name]=b;tools.append(b);
+    b.addEventListener('click',()=>act(name));buttons[name]=b;tools.append(b);
   });
   range.type='range';range.min=0;range.max=N-1;range.step=1;range.setAttribute('aria-label','Шаг выполнения');
-  bar.append(tools,range,counter,where);
+  bar.append(modes,tools,range,counter,where);
   const box=(title,cls)=>{const wrap=el('div','trace-box '+cls),body=el('div','trace-body');wrap.append(el('p','trace-label',title),body);return [wrap,body];};
-  const [codeBox,codeBody]=box('Код · подсвечена только что выполненная строка · клик по номеру — точка останова','trace-code');
-  const [varsBox,varsBody]=box('Переменные после этой строки','trace-vars');
+  const [codeBox,codeBody]=box('Код · подсвечены строки этого шага · клик по номеру — точка останова','trace-code');
+  const [varsBox,varsBody]=box('Переменные после этого шага','trace-vars');
   const [logBox,logBody]=box('Вывод программы (print)','trace-log');
   const [mathBox,mathBody]=box('Формулы сети · числа этого шага, 6 знаков — пересчёт сойдётся','trace-math');
   // Система уравнений текущей части сети: подсвечено уравнение этой строки, ниже — подстановка.
+  // У шага разбора подстановок несколько (full): все строки шага по порядку.
   const narrow=matchMedia('(max-width:640px)');
   function renderMath(m) {
     mathBody.replaceChildren();
     if(!m){mathBody.append(el('p','trace-empty','В этой строке готовятся данные — формул сети здесь нет.'));return;}
     const inner=el('div','trace-math-inner');inner.append(el('p','trace-math-title',m.title));
-    m.rows.forEach(row=>{const eq=el('div','trace-eq is-'+row.s);tex(eq,row.t,true);inner.append(eq);});
-    if(m.sub){const sub=el('div','trace-subst');tex(sub,m.sub,true);inner.append(sub);}
-    if(m.cap)inner.append(el('p','trace-cap',m.cap));
+    (m.rows||[]).forEach(row=>{const eq=el('div','trace-eq is-'+row.s);tex(eq,row.t,true);inner.append(eq);});
+    (m.full||(m.sub ? [m.sub] : [])).forEach(t=>{const sub=el('div','trace-subst');tex(sub,t,true);inner.append(sub);});
+    // Подпись без формул (шаг «Данные») на телефоне не прячется — иначе панель пуста.
+    if(m.cap)inner.append(el('p','trace-cap'+(inner.childElementCount>1 ? '' : ' is-only'),m.cap));
     if(m.w){const refs=el('p','trace-cap','Подробно: ');m.w.forEach((id,i)=>{if(i)refs.append(' · ');refs.append(link(CATALOG.formulas.find(f=>f.id===canonicalId(id)).name+' →',wikiUrl(id)));});inner.append(refs);}
     mathBody.append(inner);
     // Длинные формулы ужимаются по ширине панели, по высоте панель прокручивается.
     // На телефоне — не мельче 75 %, остаток листается пальцем вбок.
     for(let pass=0;pass<3;pass++){const k=Math.min(1,mathBody.clientWidth/inner.scrollWidth);
       if(k>=.995)break;inner.style.fontSize=Math.max(narrow.matches ? .75 : .55,(parseFloat(inner.style.fontSize)||100)/100*k*.98)*100+'%';}
+    mathBody.scrollTop=0;
   }
   const rows=src.map((text,i)=>{const row=el('div','trace-line');row.append(el('span','trace-num',String(i+1)),pyLine(text),el('span','trace-val'));codeBody.append(row);return row;});
   const paintBps=()=>rows.forEach((row,i)=>row.firstChild.classList.toggle('is-bp',bps.has(i+1)));
@@ -368,9 +388,10 @@ function traceViewer(stage,track,code,trace,key) {
     const names=Object.keys(vars);if(!names.length)g.append(el('p','trace-empty','пока пусто'));
     names.forEach(name=>{const row=el('div','trace-var'+(changed.includes(name)?' is-changed':''));row.append(el('span','trace-name',name),el('span','trace-value',vars[name]));g.append(row);});
     varsBody.append(g);};
-  let current=-1;
-  function render(k) {
-    if(k===current)return;current=k;const s=steps[k];
+  let current=-1,curFrom=-1,ki=0,lineAt=0;
+  // k — строка-шаг, from — первая строка-шаг показываемого шага (по строкам from = k).
+  function render(k,from) {
+    if(k===current&&from===curFrom)return;current=k;curFrom=from;const s=steps[k];
     // Проигрываем шаги до k: на новой итерации или вызове подписи тела стираются.
     const notesNow=new Map(),callers=[];
     for(let j=0;j<=k;j++){
@@ -381,29 +402,53 @@ function traceViewer(stage,track,code,trace,key) {
       notesNow.set(t.l[0],notes[j]);
     }
     const caller=s.f ? callers[callers.length-1] : 0;
+    // Строки, выполненные на этом шаге, и переменные, которые они поменяли.
+    const cur=new Set(),fresh=new Set(),changed=new Set();
+    for(let j=from;j<=k;j++){const t=steps[j];for(let n=t.l[0];n<=t.l[1];n++)cur.add(n);fresh.add(t.l[0]);if(t.f===s.f)t.c.forEach(n=>changed.add(n));}
     rows.forEach((row,i)=>{const n=i+1;
-      row.classList.toggle('is-current',n>=s.l[0]&&n<=s.l[1]);row.classList.toggle('is-caller',n===caller);
-      row.lastChild.textContent=notesNow.get(n)||'';row.lastChild.classList.toggle('is-fresh',n===s.l[0]);});
+      row.classList.toggle('is-current',cur.has(n));row.classList.toggle('is-caller',n===caller);
+      row.lastChild.textContent=notesNow.get(n)||'';row.lastChild.classList.toggle('is-fresh',fresh.has(n));});
     reveal(codeBody,rows[s.l[0]-1],true);
-    varsBody.replaceChildren();
-    if(s.f){group('внутри '+s.f+'()',s.v,s.c);group('глобальные',globalsAt[k],[]);}else group('',s.v,s.c);
+    varsBody.replaceChildren();const ch=[...changed];
+    if(s.f){group('внутри '+s.f+'()',s.v,ch);group('глобальные',globalsAt[k],[]);}else group('',s.v,ch);
     reveal(varsBody,varsBody.querySelector('.is-changed'));
-    renderMath(s.m);
-    const before=k?steps[k-1].o:0;logBody.replaceChildren();
+    renderMath(coarse&&s.k ? Object.assign({},s.m,s.k) : s.m);
+    const before=from ? steps[from-1].o : 0;logBody.replaceChildren();
     if(!s.o)logBody.append(el('p','trace-empty','пока ничего не напечатано'));
     out.slice(0,s.o).forEach((line,i)=>logBody.append(el('div','trace-out'+(i>=before?' is-new':''),line||' ')));
     logBody.scrollTop=logBody.scrollHeight;
-    range.value=k;counter.textContent='Шаг '+(k+1)+' из '+N;
-    buttons.restart.disabled=buttons.back.disabled=k===0;
-    buttons.continue.disabled=buttons.over.disabled=buttons.into.disabled=k===N-1;
-    buttons.out.disabled=!depth[k];
+    range.value=coarse ? ki : k;counter.textContent='Шаг '+(coarse ? ki+1 : k+1)+' из '+(coarse ? K : N);
+    buttons.restart.disabled=coarse ? ki===0 : k===0;buttons.back.disabled=k===0;
+    buttons.prev.disabled=ki===0;buttons.next.disabled=ki===K-1;
+    buttons.continue.disabled=buttons.over.disabled=k===N-1;buttons.into.disabled=!coarse&&k===N-1;
+    buttons.out.disabled=!coarse&&!depth[k]&&K<2;
     where.textContent='Keras: '+(keras[s.l[0]-1]||'—')+(s.f ? '  ·  внутри '+s.f+'(), вызов из строки '+caller : '');
   }
-  const go=k=>render(Math.min(N-1,Math.max(0,k)));
+  const goKey=i=>{ki=Math.min(K-1,Math.max(0,i));render(keys[ki],groupStart(ki));};
+  const go=k=>{k=Math.min(N-1,Math.max(0,k));ki=keyOf(k);if(coarse)goKey(ki);else render(k,k);};
+  function setMode(c,k) {
+    coarse=c&&K>1;if(coarse)lineAt=k;try{localStorage.setItem(modeKey,coarse ? 'steps' : 'lines');}catch{}
+    bar.classList.toggle('is-coarse',coarse);modeBtn.coarse.setAttribute('aria-pressed',String(coarse));modeBtn.lines.setAttribute('aria-pressed',String(!coarse));
+    range.max=coarse ? K-1 : N-1;current=-1;go(k);
+  }
+  // «Зайти» на шаге разбора — его же строки по одной; «Выйти» с верхнего уровня — обратно к шагам разбора.
+  const act=name=>{
+    if(name==='prev')return goKey(ki-1);
+    if(name==='next')return goKey(ki+1);
+    if(coarse){
+      if(name==='restart')goKey(0);
+      else if(name==='into')setMode(false,groupStart(ki));
+      else if(name==='over')goKey(ki+1);
+      else if(name==='continue')goKey(keyOf(target.continue(keys[ki])));   // шаг разбора со следующей точкой останова
+      return;
+    }
+    if(name==='out'&&!depth[current])return setMode(true,current);
+    go(target[name](current));
+  };
   // Переход из карты над разбором: первый шаг, выполненный в этих строках.
   track.jumpTo=(from,to)=>{const k=steps.findIndex(s=>s.l[0]>=from&&s.l[0]<=to);if(k>=0)go(k);};
-  addEventListener('resize',()=>{const k=current;current=-1;render(k);});
-  range.addEventListener('input',()=>go(Number(range.value)));
+  addEventListener('resize',()=>{const k=current,f=curFrom;current=-1;render(k,f);});
+  range.addEventListener('input',()=>coarse ? goKey(Number(range.value)) : go(Number(range.value)));
   // Клавиши отладчика работают, пока экран разбора занимает середину окна.
   // F5 перехватывается и на последнем шаге, иначе браузер перезагрузит страницу.
   addEventListener('keydown',e=>{
@@ -412,11 +457,11 @@ function traceViewer(stage,track,code,trace,key) {
     const k=e.key,shift=e.shiftKey;
     const name=e.ctrlKey ? (shift&&k==='F5' ? 'restart' : null)
       : k==='F5'&&!shift ? 'continue' : k==='F10'&&!shift ? 'over' : k==='F11' ? (shift ? 'out' : 'into')
-      : k==='ArrowRight'&&!shift ? 'into' : k==='ArrowLeft'&&!shift ? 'back' : null;
+      : k==='ArrowRight'&&!shift ? (coarse ? 'next' : 'into') : k==='ArrowLeft'&&!shift ? (coarse ? 'prev' : 'back') : null;
     if(!name)return;
-    e.preventDefault();if(!buttons[name].disabled)go(target[name](current));
+    e.preventDefault();if(!buttons[name].disabled)act(name);
   });
-  render(0);
+  setMode(coarse,0);
 }
 // Темы конспекта, связанные с примером: та же глава или общая формула.
 function unitsForExample(example) {

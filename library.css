@@ -108,6 +108,16 @@
 .dbg-label { color:var(--text); }
 .dbg kbd { padding:0 .25rem; border:1px solid var(--card-border); border-radius:3px; background:var(--bg); color:var(--muted); font-family:var(--mono); font-size:.66rem; }
 .dbg-back { margin-left:.4rem; }
+/* Переключатель «по шагам разбора / по строкам»; кнопки, не нужные в режиме, скрыты. */
+.dbg-modes { display:flex; }
+.dbg-mode { border-radius:0; }
+.dbg-mode:first-child { border-radius:6px 0 0 6px; }
+.dbg-mode:last-child { border-radius:0 6px 6px 0; margin-left:-1px; }
+.dbg-mode[aria-pressed="true"] { background:var(--formula-bg); border-color:var(--accent); color:var(--text); font-weight:650; }
+.dbg-count { padding:0 .3rem; border-radius:3px; background:var(--formula-bg); color:var(--muted); font-size:.7rem; font-variant-numeric:tabular-nums; }
+.trace-bar.is-coarse .dbg-over,.trace-bar.is-coarse .dbg-out,.trace-bar.is-coarse .dbg-back,
+.trace-bar:not(.is-coarse) .dbg-prev,.trace-bar:not(.is-coarse) .dbg-next { display:none; }
+.trace-subst + .trace-subst { margin-top:.4rem; }
 .trace-bar input[type=range] { flex:1 1 14rem; min-width:8rem; accent-color:var(--accent); }
 .trace-counter { min-width:7.5rem; font-weight:650; font-variant-numeric:tabular-nums; }
 .trace-where { flex-basis:100%; color:var(--muted); font-family:var(--mono); font-size:.76rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -191,6 +201,7 @@ a:focus-visible,button:focus-visible,summary:focus-visible { outline:2px solid v
   .trace-grid { grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,.95fr) minmax(0,1.1fr) minmax(0,.65fr) minmax(0,.4fr); grid-template-areas:"code" "math" "vars" "log"; gap:.4rem; }
   .trace-math .trace-body { font-size:.78rem; }
   .trace-eq.is-todo,.trace-eq.is-done,.trace-cap { display:none; }
+  .trace-cap.is-only { display:block; }
   .trace-bar { padding:.4rem .5rem; }
   .trace-counter { min-width:0; }
   .dbg { padding:0 .5rem; }
