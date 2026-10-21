@@ -34,7 +34,7 @@ const pyList = a => `[${a.map(N).join(', ')}]`;         // repr списка Pyt
 const pair = v => `(${N(v[0])},\\ ${N(v[1])})`;
 // Школьное округление десятичной записи до 6 значащих цифр: половина — вверх. Нужно там, где точная сумма
 // может лечь ровно посередине (z — произведения коротких десятичных дробей): у float64 там шум в 17-м знаке,
-// и сборка проверяет, что он не увёл последнюю цифру вниз.
+// и сборка проверяет, что программа округлила так же, как сделал бы человек с калькулятором.
 const halfUp6 = x => {
   const s = N10(x); if (s.includes('e')) return N(x);
   const neg = s.startsWith('-'), [ip, fp = ''] = (neg ? s.slice(1) : s).split('.');
@@ -233,7 +233,8 @@ module.exports = function addMath(steps, code, output) {
         const z = S.w * h + S.b, eShown = Math.exp(-R10(z));
         const val = check(`p_${k + 1}`, v.p[k], 1 / (1 + Math.exp(-z)), 1 / (1 + R10(eShown)));
         P[`p_${k + 1}`] = val;
-        sub.push(`p_${k + 1} &= \\sigma(${N(S.w)}\\cdot ${M(h)} + ${M(S.b)}) = ${sigma(z, eShown, val, N10)}`);
+        // Две строки на отзыв: с 10-значными числами одна строка не влезает в панель.
+        sub.push(`p_${k + 1} &= \\sigma(${N(S.w)}\\cdot ${M(h)} + ${M(S.b)}) = \\sigma(${N10(z)})`, `&= ${sigma(z, eShown, val, N10).replace(/^\\sigma\([^)]*\) = /, '')}`);
         return val;
       });
       train.p = ` = (${S.p.map(N).join(',\\ ')})`;
@@ -269,7 +270,7 @@ module.exports = function addMath(steps, code, output) {
       const terms = S.p.map((p, k) => `(${N(p)} - ${y[k]})` + (w ? `\\cdot ${M(S.H[k])}` : '')).join(' + ');
       return ep({ title: epochTitle(), rows: system(TRAIN, train, [w ? 'g_w' : 'g_b']), w: ['logistic-gradient-component'],
         sub: aligned([`g_${w ? 'w' : 'b'} &= \\tfrac1${n}\\big[${terms}\\big]`, `&= \\tfrac1${n}\\big[${parts.map(M10).join(' + ')}\\big] = ${N(val)}`]),
-        cap: w ? 'Для пары sigmoid + кросс-энтропия производная L по аргументу сигмоиды равна p − y (вывод — по ссылке ниже); по w_d — ещё умножить на вход h.' : 'То же для смещения b_d: его «вход» равен 1.' });
+        cap: w ? 'Для пары sigmoid + кросс-энтропия производная слагаемого одного отзыва по аргументу его сигмоиды равна p_k − y_k (вывод — по ссылке ниже); по w_d — ещё умножить на вход h^{(k)}; L — среднее по N отзывам, отсюда 1/N.' : 'То же для смещения b_d: его «вход» равен 1.' });
     }
     if (at('print(f"   g_w')) return printed(epochTitle(), system(TRAIN, train, ['g_w', 'g_b']));
     if (at('v_w = r(rho') || at('v_b = r(rho')) {
