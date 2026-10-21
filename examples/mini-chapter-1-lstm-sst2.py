@@ -4,6 +4,10 @@ import math
 # Keras делает внутри своих функций, здесь написано руками.
 # Блоки 1–6 идут в том же порядке и под теми же номерами.
 # «# Keras: …» — какую строку Keras повторяет блок под этой пометкой.
+# Программа печатает каждое число, которое считает. Все они округлены
+# до 6 значащих цифр (функция r в блоке 4), и дальше программа считает
+# уже с округлённым числом. Поэтому любое число в выводе получается на
+# калькуляторе из напечатанных выше по формуле в строке кода рядом.
 
 # ── 1. Данные ──────────────────────────────────────────────
 # Keras: sentences = [...]; labels = np.array([1, 0])
@@ -46,6 +50,15 @@ U = [0.3, 0.2, 0.5, 0.2]      # от h прошлого слова
 b = [0.0, 1.0, 0.0, 0.0]      # у f смещение 1, как в Keras
 
 
+def r(x):
+    # Округляет до 6 значащих цифр; ровно посередине (…5) — вверх, как
+    # на калькуляторе. Дальше программа считает уже с округлённым числом,
+    # поэтому каждое следующее число сходится из напечатанных. Без этого
+    # сеть считала бы с 16 знаками, и последняя напечатанная цифра иногда
+    # не сходилась бы с пересчётом. (Keras считает в float32 — ~7 цифр.)
+    return float(f"{x:.6g}")
+
+
 def sigmoid(z):
     return 1 / (1 + math.exp(-z))
 
@@ -53,20 +66,23 @@ def sigmoid(z):
 # Что слой LSTM делает с одним словом: вектор слова x
 # и память (h, c) после прошлого слова → новая память.
 def lstm_step(x, h, c):
-    # аргумент каждого вентиля: W·x + U·h + b
-    z = [x[0] * W[0][k] + x[1] * W[1][k] + h * U[k] + b[k]
+    # аргумент каждого вентиля: x·W + h·U + b (столбец W и U на вентиль)
+    z = [r(x[0] * W[0][k] + x[1] * W[1][k] + h * U[k] + b[k])
          for k in range(4)]
-    i = sigmoid(z[0])        # сколько нового записать
-    f = sigmoid(z[1])        # сколько старой памяти оставить
-    c_hat = math.tanh(z[2])  # что записать
-    o = sigmoid(z[3])        # сколько памяти выдать наружу
-    c = f * c + i * c_hat    # новая память
-    h = o * math.tanh(c)     # выход ячейки
+    print(f"   z_i = {z[0]}  z_f = {z[1]}  z_c = {z[2]}  z_o = {z[3]}")
+    i = r(sigmoid(z[0]))        # сколько нового записать
+    f = r(sigmoid(z[1]))        # сколько старой памяти оставить
+    c_hat = r(math.tanh(z[2]))  # что записать
+    o = r(sigmoid(z[3]))        # сколько памяти выдать наружу
+    print(f"   i = {i}  f = {f}  c~ = {c_hat}  o = {o}")
+    c = r(f * c + i * c_hat)    # новая память
+    h = r(o * math.tanh(c))     # выход ячейки
+    print(f"   c = {c}  h = {h}")
     return h, c
 
 
 # Keras: model.add(Dense(1, activation="sigmoid")) + set_weights
-# один вес на вход h и смещение
+# один вес на вход h и смещение; _d — чтобы не путать с b ячейки LSTM
 w_d, b_d = 2.0, 0.0
 
 # ── 5. compile: чем мерить ошибку, как менять веса ─────────
@@ -88,33 +104,44 @@ lr, rho, eps = 0.001, 0.9, 1e-7
 # заморожены (trainable = False), H во всех эпохах одинаковый — поэтому
 # здесь он посчитан один раз, до эпох: каждый отзыв → одно число h.
 H = []
-for seq in train_pad:
+for k, seq in enumerate(train_pad):
+    print(f"отзыв {k + 1} «{sentences[k]}»")
     h, c = 0.0, 0.0  # перед первым словом памяти нет
     for idx in seq:
-        # Embedding: E[idx] — строка таблицы; затем шаг LSTM
-        h, c = lstm_step(E[idx], h, c)
-        print(f"{words[idx]:>5}: h={h:.4f} c={c:.4f}")
+        x = E[idx]  # Embedding: номер слова выбирает строку таблицы
+        print(f"{words[idx]:>5}: x = {x}  h = {h}  c = {c}")
+        h, c = lstm_step(x, h, c)  # шаг LSTM: печатает всё, что посчитал
     H.append(h)  # дальше идёт только h после последнего слова
+    print(f"   h_T = {h}  (в Dense пойдёт только оно)")
 
 # Keras: model.fit(...) — внутри: эпохи
 # batch_size=32, а отзывов 2 — оба в одном батче: эпоха = один шаг.
+# Учится только Dense: градиент назад через ячейку LSTM и таблицу E
+# удвоил бы разбор; в книге учатся все слои, тем же правилом цепочки.
 v_w = v_b = 0.0  # rmsprop копит средний квадрат градиента; сначала 0
 for epoch in range(1, 4):  # epochs=3
+    print(f"Epoch {epoch}/3")
     # прямой проход до конца: Dense + sigmoid → вероятность «хороший»
-    p = [sigmoid(w_d * h + b_d) for h in H]
+    p = [r(sigmoid(w_d * h + b_d)) for h in H]
+    print(f"   p_1 = {p[0]}  p_2 = {p[1]}")
     # metrics=["acc"]: доля отзывов, где p > 0.5 совпало с меткой
-    acc = sum((q > 0.5) == y for q, y in zip(p, labels)) / 2
+    acc = sum((q > 0.5) == y for q, y in zip(p, labels)) / len(p)
     # loss — эту ошибку Keras печатает в строке эпохи
-    loss = bce(p)
+    loss = r(bce(p))
+    print(f"   acc = {acc}  loss = {loss}")
     # обратный проход: производные loss по весам Dense
-    g_w = sum((q - y) * h for q, y, h in zip(p, labels, H)) / 2
-    g_b = sum(q - y for q, y in zip(p, labels)) / 2
+    g_w = r(sum((q - y) * h for q, y, h in zip(p, labels, H)) / len(p))
+    g_b = r(sum(q - y for q, y in zip(p, labels)) / len(p))
+    print(f"   g_w = {g_w}  g_b = {g_b}")
     # шаг rmsprop: градиент делится на свой средний размер
-    v_w = rho * v_w + (1 - rho) * g_w ** 2
-    v_b = rho * v_b + (1 - rho) * g_b ** 2
-    w_d -= lr * g_w / math.sqrt(v_w + eps)
-    b_d -= lr * g_b / math.sqrt(v_b + eps)
-    print(f"Epoch {epoch}/3 - acc: {acc:.4f} - loss: {loss:.4f}")
+    v_w = r(rho * v_w + (1 - rho) * g_w ** 2)
+    v_b = r(rho * v_b + (1 - rho) * g_b ** 2)
+    print(f"   v_w = {v_w}  v_b = {v_b}")
+    w_d = r(w_d - lr * g_w / math.sqrt(v_w + eps))
+    b_d = r(b_d - lr * g_b / math.sqrt(v_b + eps))
+    print(f"   w_d = {w_d}  b_d = {b_d}")
+    # так печатает Keras: батч 1 из 1, acc и loss эпохи — посчитаны до шага
+    print(f"1/1 - acc: {acc:.4f} - loss: {loss:.4f}")
 
 # Keras: model.layers[2].get_weights() — веса Dense после обучения
 print(f"Dense после обучения: w={w_d:.4f} b={b_d:.4f}")

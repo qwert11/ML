@@ -353,7 +353,7 @@ function traceViewer(stage,track,code,trace,key) {
   const [codeBox,codeBody]=box('Код · подсвечены строки этого шага · клик по номеру — точка останова','trace-code');
   const [varsBox,varsBody]=box('Переменные после этого шага','trace-vars');
   const [logBox,logBody]=box('Вывод программы (print)','trace-log');
-  const [mathBox,mathBody]=box('Формулы сети · числа этого шага, 6 знаков — пересчёт сойдётся','trace-math');
+  const [mathBox,mathBody]=box('Формулы сети · результаты — 6 значащих цифр, как печатает программа; числа внутри формулы — 10','trace-math');
   // Система уравнений текущей части сети: подсвечено уравнение этой строки, ниже — подстановка.
   // У шага разбора подстановок несколько (full): все строки шага по порядку.
   const narrow=matchMedia('(max-width:640px)');
