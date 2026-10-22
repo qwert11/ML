@@ -95,9 +95,9 @@ for (const example of officialExamples) {
     // Обычный запуск обязан напечатать ровно то же, что видно в логе трассировки.
     // Трассировка пересчитывается при каждой сборке: формулам сети нужны точные значения шагов.
     const mini = example.miniDemo, key = 'mini-' + example.id, traceFile = `data/traces/${key}.json`, code = mini.code;
-    const plain = spawnSync('python', ['-X','utf8','-c',code], {encoding:'utf8',timeout:15000});
+    const plain = spawnSync('python', ['-X','utf8','-c',code], {encoding:'utf8',timeout:60000,maxBuffer:64*1024*1024});
     if (plain.status !== 0) throw Error(`Python ${key}: ${plain.stderr || plain.error}`);
-    const traced = spawnSync('python', ['-X','utf8',path.join(root,'scripts/trace-python.py')], {input:code,encoding:'utf8',timeout:15000});
+    const traced = spawnSync('python', ['-X','utf8',path.join(root,'scripts/trace-python.py')], {input:code,encoding:'utf8',timeout:120000,maxBuffer:256*1024*1024});
     if (traced.status !== 0) throw Error(`Trace ${key}: ${traced.stderr || traced.error}`);
     const trace = JSON.parse(traced.stdout);
     if (trace.output !== plain.stdout.replace(/\r\n/g,'\n')) throw Error(`Trace ${key}: вывод трассировки не совпадает с обычным запуском`);
@@ -109,8 +109,8 @@ for (const example of officialExamples) {
       if (!formulas.has(canonical(id))) throw Error(`Unknown formula ${id} in ${key}`);
     }
     if (mini.keras) {
-      // Сокращённый оригинал Keras сборка не запускает (нужен TensorFlow), но его снятый вывод
-      // обязан сходиться с мини-кодом: словарь, выравнивание, acc/loss эпох и итоговые веса.
+      // Сокращённый оригинал Keras сборка не запускает (нужен Keras + torch, см. .venv), но его снятый вывод
+      // обязан сходиться с мини-кодом: словарь, выравнивание, стартовые веса, acc/loss эпох и итоговые веса.
       const keras = mini.keras.output.split('\n'), ours = trace.output.split('\n');
       const pick = (lines, re) => lines.flatMap(line => [...line.matchAll(re)].map(m => m[0]));
       const same = (what, re) => {
@@ -118,8 +118,19 @@ for (const example of officialExamples) {
         if (!a || a !== b) throw Error(`Keras ${key}: ${what} — у Keras «${a}», в мини-коде «${b}»`);
       };
       same('словарь и выравнивание', /^(word2idx|train_pad): .*$/g);
-      same('acc и loss по эпохам', /acc: \d\.\d{4} - loss: \d\.\d{4}/g);
-      same('веса после обучения', /^Dense после обучения: .*$/g);
+      // acc — точно, loss — до 1.5e-4: Keras считает в float32, мини-код — с округлением до 6 цифр на каждом шаге.
+      const nums = (lines, re) => lines.flatMap(line => [...line.matchAll(re)].map(m => m.slice(1).map(Number)));
+      const RE = /acc: (\d\.\d{4}) - loss: (\d\.\d{4})/g, ka = nums(keras, RE), oa = nums(ours, RE);
+      if (!ka.length || ka.length !== oa.length || ka.some(([acc, loss], i) => acc !== oa[i][0] || Math.abs(loss - oa[i][1]) > 1.5e-4)) throw Error(`Keras ${key}: acc/loss по эпохам — у Keras ${JSON.stringify(ka)}, в мини-коде ${JSON.stringify(oa)}`);
+      // Блок «имя = значение» после заголовка (стартовые веса / после обучения).
+      const block = (lines, head) => { const i = lines.findIndex(l => l.startsWith(head)); if (i < 0) throw Error(`Keras ${key}: нет блока «${head}»`); const out = {}; for (const l of lines.slice(i + 1)) { const m = l.match(/^(\w+) = (.*)$/); if (!m) break; out[m[1]] = m[2]; } return out; };
+      const NAMES = ['E', 'W', 'U', 'b', 'w_d', 'b_d'];
+      // Стартовые веса: мини-код обязан начинать ровно с тех чисел, что напечатал Keras (панель переменных печатает их так же).
+      const start = block(keras, 'стартовые веса'), first = trace.steps.find(s => !s.f && NAMES.every(n => s.v[n] !== undefined));
+      for (const name of NAMES) if (start[name] !== first.v[name]) throw Error(`Keras ${key}: стартовый ${name} — у Keras «${start[name]}», в мини-коде «${first.v[name]}»`);
+      // Веса после обучения — до 1.5e-4 по каждому числу (4 знака печати; float32 у Keras).
+      const fin = block(keras, 'после обучения'), finOurs = block(ours, 'после обучения'), flat = s => [JSON.parse(s)].flat(3);
+      for (const name of NAMES) { const x = flat(fin[name]), y = flat(finOurs[name]); if (x.length !== y.length || x.some((v, i) => Math.abs(v - y[i]) > 1.5e-4)) throw Error(`Keras ${key}: после обучения ${name} — у Keras «${fin[name]}», в мини-коде «${finOurs[name]}»`); }
       if (checkPython) {
         const syntax = spawnSync('python', ['-X','utf8','-c','import ast,sys; ast.parse(sys.stdin.read())'], {input:mini.keras.code,encoding:'utf8',timeout:15000});
         if (syntax.status !== 0) throw Error(`Keras syntax ${key}: ${syntax.stderr || syntax.error}`);

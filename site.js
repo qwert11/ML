@@ -367,10 +367,9 @@ function traceViewer(stage,track,code,trace,key) {
     if(m.cap)inner.append(el('p','trace-cap'+(inner.childElementCount>1 ? '' : ' is-only'),m.cap));
     if(m.w){const refs=el('p','trace-cap','Подробно: ');m.w.forEach((id,i)=>{if(i)refs.append(' · ');refs.append(link(CATALOG.formulas.find(f=>f.id===canonicalId(id)).name+' →',wikiUrl(id)));});inner.append(refs);}
     mathBody.append(inner);
-    // Длинные формулы ужимаются по ширине панели, по высоте панель прокручивается.
-    // На телефоне — не мельче 75 %, остаток листается пальцем вбок.
+    // Длинные формулы ужимаются по ширине панели, но не мельче 75 %: остаток панель прокручивает вбок; по высоте — тоже прокрутка.
     for(let pass=0;pass<3;pass++){const k=Math.min(1,mathBody.clientWidth/inner.scrollWidth);
-      if(k>=.995)break;inner.style.fontSize=Math.max(narrow.matches ? .75 : .55,(parseFloat(inner.style.fontSize)||100)/100*k*.98)*100+'%';}
+      if(k>=.995)break;inner.style.fontSize=Math.max(.75,(parseFloat(inner.style.fontSize)||100)/100*k*.98)*100+'%';}
     mathBody.scrollTop=0;
   }
   const rows=src.map((text,i)=>{const row=el('div','trace-line');row.append(el('span','trace-num',String(i+1)),pyLine(text),el('span','trace-val'));codeBody.append(row);return row;});
@@ -428,7 +427,7 @@ function traceViewer(stage,track,code,trace,key) {
   const go=k=>{k=Math.min(N-1,Math.max(0,k));ki=keyOf(k);if(coarse)goKey(ki);else render(k,k);};
   function setMode(c,k) {
     coarse=c&&K>1;if(coarse)lineAt=k;try{localStorage.setItem(modeKey,coarse ? 'steps' : 'lines');}catch{}
-    bar.classList.toggle('is-coarse',coarse);modeBtn.coarse.setAttribute('aria-pressed',String(coarse));modeBtn.lines.setAttribute('aria-pressed',String(!coarse));
+    bar.classList.toggle('is-coarse',coarse);grid.classList.toggle('is-coarse',coarse);modeBtn.coarse.setAttribute('aria-pressed',String(coarse));modeBtn.lines.setAttribute('aria-pressed',String(!coarse));
     range.max=coarse ? K-1 : N-1;current=-1;go(k);
   }
   // «Зайти» на шаге разбора — его же строки по одной; «Выйти» с верхнего уровня — обратно к шагам разбора.

@@ -123,6 +123,8 @@
 .trace-where { flex-basis:100%; color:var(--muted); font-family:var(--mono); font-size:.76rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .trace-grid { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); grid-template-rows:minmax(0,1.3fr) minmax(0,.7fr); grid-template-areas:"code math" "log vars"; gap:.6rem; }
 .trace-code { grid-area:code; } .trace-math { grid-area:math; } .trace-log { grid-area:log; } .trace-vars { grid-area:vars; }
+/* По шагам разбора формулы шага занимают всю ширину: подстановок много, им нужно место. */
+.trace-grid.is-coarse { grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); grid-template-rows:minmax(0,1.5fr) minmax(0,.7fr) minmax(0,.5fr); grid-template-areas:"math math" "code log" "vars vars"; }
 .trace-box { display:flex; flex-direction:column; min-height:0; border:1px solid var(--card-border); border-radius:10px; background:var(--card-bg); }
 .trace-label { margin:0; padding:.45rem .8rem .35rem; border-bottom:1px solid var(--card-border); color:var(--muted); font-size:.68rem; font-weight:750; letter-spacing:.07em; text-transform:uppercase; }
 /* Каждая панель листается колесом сама; долистав до края, колесо уходит странице */

@@ -2,16 +2,33 @@
 # MIT License, Copyright (c) 2021 Packt
 # Источник: https://github.com/PacktPublishing/Mastering-Transformers/blob/f088d75fb24f583a581a5a99fa02ccf445b77dfc/CH01/CH01_Introduction.ipynb
 # Сокращено для сайта ML: данные и веса — как в разборе на числах
-# Сокращённый оригинал: код Packt выше, но на двух отзывах и с
-# круглыми весами — теми же, что в разборе на числах ниже.
-# Блоки 1–6 пронумерованы так же, как там.
-# «было:» — так в оригинале; «добавлено:» — нужно для сверки с разбором.
-# Запуск: pip install tensorflow (в нём Keras 3), затем python этот_файл.py
+# Сокращённый оригинал: код Packt выше, но на двух отзывах и в размере,
+# который можно пересчитать руками. Веса — настоящие стартовые веса Keras
+# (seed закреплён, чтобы при каждом запуске выходили те же числа),
+# учатся все слои, как в оригинале. Блоки 1–6 пронумерованы так же,
+# как в разборе ниже. «было:» — так в оригинале; «добавлено:» — нужно
+# для сверки с разбором.
+# Запуск: pip install keras torch (Keras 3 на бэкенде torch), затем
+# python этот_файл.py
 
+import os
+os.environ.setdefault("KERAS_BACKEND", "torch")  # добавлено: бэкенд, на котором снят вывод
 import numpy as np  # было: import tensorflow as tf; import pandas as pd
+import keras
 from keras import preprocessing
 from keras.layers import LSTM, Embedding, Dense
 from keras.models import Sequential
+
+keras.utils.set_random_seed(0)  # добавлено: стартовые веса случайные, но одни и те же
+
+
+def show(name, a):  # добавлено: печать весов с 6 значащими цифрами; их копирует разбор
+    print(f"{name} =", np.vectorize(lambda v: float(f"{v:.6g}") + 0.0)(a).tolist())
+
+
+def show4(name, a):  # добавлено: 4 знака после запятой — сверка с разбором после обучения
+    print(f"{name} =", (np.round(np.asarray(a, dtype=float), 4) + 0.0).tolist())
+
 
 # ── 1. Данные ──────────────────────────────────────────────
 # было: df = pd.read_csv("SST-2/train.tsv", sep="\t")
@@ -48,20 +65,18 @@ model.add(Embedding(max_words, 2))  # было: 32 числа на слово
 model.add(LSTM(1))                  # было: 32 ячейки
 model.add(Dense(1, activation="sigmoid"))
 
-# добавлено: вместо случайных начальных весов — круглые, как в разборе
+# добавлено: создать веса сейчас и напечатать стартовые — с них начинает разбор
 model.build(input_shape=(None, max_sen_len))
-model.layers[0].set_weights([np.array([   # E: строка на слово
-    [0.0, 0.0], [0.2, 0.4], [0.9, 0.1], [0.1, 0.5], [-0.8, 0.3]])])
-model.layers[1].set_weights([
-    np.array([[0.5, 0.3, 1.0, 0.4],       # W от x[0]; столбцы i f c~ o
-              [0.2, -0.1, 0.3, 0.1]]),    # W от x[1]
-    np.array([[0.3, 0.2, 0.5, 0.2]]),     # U: от h прошлого слова
-    np.array([0.0, 1.0, 0.0, 0.0]),       # b
-])
-model.layers[2].set_weights([np.array([[2.0]]), np.array([0.0])])  # w, b
-# добавлено: Embedding и LSTM не обучаются — в разборе учится только Dense
-model.layers[0].trainable = False
-model.layers[1].trainable = False
+E = model.layers[0].get_weights()[0]           # Embedding: строка на слово
+W, U, b = model.layers[1].get_weights()        # LSTM: от x, от h, смещения; столбцы i f c~ o
+w_d, b_d = model.layers[2].get_weights()       # Dense: вес и смещение
+print("стартовые веса (seed 0):")
+show("E", E)
+show("W", W)
+show("U", U[0])
+show("b", b)
+show("w_d", w_d[0][0])
+show("b_d", b_d[0])
 
 # ── 5. compile: чем мерить ошибку, как менять веса ─────────
 model.compile(
@@ -80,6 +95,14 @@ history = model.fit(
 )
 
 # было: plot_graphs(history, "acc"); plot_graphs(history, "loss")
-# добавлено: веса Dense после обучения — сверить с разбором
-w, b = model.layers[2].get_weights()
-print(f"Dense после обучения: w={w[0][0]:.4f} b={b[0]:.4f}")
+# добавлено: веса после обучения (4 знака) — сверить с разбором
+E = model.layers[0].get_weights()[0]
+W, U, b = model.layers[1].get_weights()
+w_d, b_d = model.layers[2].get_weights()
+print("после обучения:")
+show4("E", E)
+show4("W", W)
+show4("U", U[0])
+show4("b", b)
+show4("w_d", w_d[0][0])
+show4("b_d", b_d[0])

@@ -5,3 +5,6 @@ plan/books/
 .playwright-mcp/
 .playwright-cli/
 output/playwright/
+
+# локальное окружение Python для запуска Keras-листингов
+.venv/
